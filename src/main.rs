@@ -197,7 +197,7 @@ fn main() {
             let (x, y) = (x as f32, y as f32);
             let (u, v) = (x / max_value as f32, y / max_value as f32);
             terrain_vertices.push(Vertex {
-                position: [x, y, get_elevation(x, y)],
+                position: [x, -y, get_elevation(x, y)],
                 tex_coords: [u, v],
             });
 
@@ -234,7 +234,7 @@ fn main() {
         .create_pipeline_state(
             &terrain_shader_set,
             gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
+            gfx::state::Rasterizer::new_fill().with_cull_back(),
             terrain_pipeline::new(),
         )
         .unwrap();
