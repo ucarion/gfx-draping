@@ -25,6 +25,18 @@ gfx_pipeline!(terrain_pipeline {
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
 });
 
+gfx_vertex_struct!(PlainVertex {
+    // this is to make rustfmt go away
+    coords: [f32; 2] = "a_coords",
+});
+
+gfx_pipeline!(just_texture_pipeline {
+    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+    out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
+    color_texture: gfx::TextureSampler<f32> = "t_texture",
+    vertex_buffer: gfx::VertexBuffer<PlainVertex> = (),
+});
+
 // glClear(GL_STENCIL_BUFFER_BIT);
 // glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
 // glEnable( GL_CULL_FACE );
@@ -125,7 +137,7 @@ fn get_projection(window: &PistonWindow<Sdl2Window>) -> [[f32; 4]; 4] {
     CameraPerspective {
         fov: 45.0,
         near_clip: 0.1,
-        far_clip: 10000.0,
+        far_clip: 100.0,
         aspect_ratio: (draw_size.width as f32) / (draw_size.height as f32),
     }.projection()
 }
@@ -239,93 +251,71 @@ fn main() {
         )
         .unwrap();
 
-    let mut terrain_data = terrain_pipeline::Data {
-        color_texture: (terrain_texture_view, terrain_sampler),
+
+    let (depth_stencil_texture, depth_stencil_srv, depth_rtv) = factory
+        .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
+        .unwrap();
+
+    let (render_target_tex, render_target_srv, render_target_view) = factory
+        .create_render_target::<gfx::format::Srgba8>(800, 600)
+        .unwrap();
+
+    let terrain_data = terrain_pipeline::Data {
+        color_texture: (terrain_texture_view, terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
-        out_color: window.output_color.clone(),
-        out_depth: window.output_stencil.clone(),
+        out_color: render_target_view.clone(),
+        out_depth: depth_rtv.clone(),
         vertex_buffer: terrain_vertex_buffer,
     };
 
-    // // share this between forward, backward, and bounding-box
-    // let vector_shader_set = factory
-    //     .create_shader_set(
-    //         include_bytes!("shaders/vector.vert"),
-    //         include_bytes!("shaders/vector.frag"),
-    //     )
-    //     .unwrap();
+    let mut terrain_bundle = gfx::Bundle {
+        slice: terrain_slice,
+        pso: terrain_pso,
+        data: terrain_data,
+    };
 
-    // let vector_polygon = vec![
-    //     (10.0, 10.0),
-    //     (20.0, 10.0),
-    //     (20.0, 20.0),
-    //     (10.0, 20.0),
-    //     (10.0, 10.0),
-    // ];
-    // let (vector_volume_vertices, vector_volume_indices) =
-    //     polygon_to_vertices_and_indices(&vector_polygon);
-    // let (vector_volume_vertex_buffer, vector_volume_slice) =
-    //     factory.create_vertex_buffer_with_slice(
-    //         &vector_volume_vertices,
-    //         vector_volume_indices.as_slice(),
-    //     );
+    let jt_vertices = vec![
+        PlainVertex { coords: [-1.0, -1.0] },
+        PlainVertex { coords: [-1.0,  1.0] },
+        PlainVertex { coords: [ 1.0, -1.0] },
+        PlainVertex { coords: [ 1.0,  1.0] },
+    ];
+    let jt_indices: Vec<u16> = vec![0, 1, 2, 1, 2, 3];
+    let (jt_vbuf, jt_slice) =
+        factory.create_vertex_buffer_with_slice(&jt_vertices, jt_indices.as_slice());
+    let jt_shader_set = factory
+        .create_shader_set(
+            include_bytes!("shaders/just_texture.vert"),
+            include_bytes!("shaders/just_texture.frag"),
+        )
+        .unwrap();
+    let jt_pso = factory
+        .create_pipeline_state(
+            &jt_shader_set,
+            gfx::Primitive::TriangleList,
+            gfx::state::Rasterizer::new_fill(),
+            just_texture_pipeline::new(),
+        )
+        .unwrap();
 
-    // // forward-specific stuff
-    // let forward_pso = factory
-    //     .create_pipeline_state(
-    //         &vector_shader_set,
-    //         gfx::Primitive::TriangleList,
-    //         gfx::state::Rasterizer::new_fill().with_cull_back(),
-    //         vector_volume_forward_pipeline::new(),
-    //     )
-    //     .unwrap();
-    // let mut forward_data = vector_volume_forward_pipeline::Data {
-    //     mvp: [[0.0; 4]; 4],
-    //     out_color: window.output_color.clone(),
-    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
-    //     vertex_buffer: vector_volume_vertex_buffer,
-    // };
+    let render_target_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+        gfx::texture::FilterMethod::Bilinear,
+        gfx::texture::WrapMode::Clamp,
+    ));
 
-    // // backward-specific stuff
-    // let backward_pso = factory
-    //     .create_pipeline_state(
-    //         &vector_shader_set,
-    //         gfx::Primitive::TriangleList,
-    //         gfx::state::Rasterizer::new_fill().with_cull_back(),
-    //         vector_volume_backward_pipeline::new(),
-    //     )
-    //     .unwrap();
-    // let mut backward_data = vector_volume_backward_pipeline::Data {
-    //     mvp: [[0.0; 4]; 4],
-    //     out_color: window.output_color.clone(),
-    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
-    //     vertex_buffer: vector_volume_vertex_buffer,
-    // };
+    let jt_data = just_texture_pipeline::Data {
+        color_texture: (depth_stencil_srv, terrain_sampler.clone()),
+        // color_texture: (render_target_srv, terrain_sampler.clone()),
+        out_color: window.output_color.clone(),
+        out_depth: window.output_stencil.clone(),
+        vertex_buffer: jt_vbuf,
+    };
 
-    // // bounding-box stuff
-    // let bounding_box_polygon = vec![
-    //     (-1.0, -1.0),
-    //     (TERRAIN_SIDE_LENGTH as f32 + 1.0, -1.0),
-    //     (TERRAIN_SIDE_LENGTH as f32 + 1.0, TERRAIN_SIDE_LENGTH as f32 + 1.0),
-    //     (-1.0, TERRAIN_SIDE_LENGTH as f32 + 1.0),
-    //     (-1.0, -1.0),
-    // ];
-    // let (bounding_box_vertices, bounding_box_indices) =
-    //     polygon_to_vertices_and_indices(&bounding_box_polygon);
-    // let (bounding_box_vertex_buffer, bounding_box_slice) =
-    //     factory.create_vertex_buffer_with_slice(
-    //         &bounding_box_vertices,
-    //         bounding_box_indices.as_slice(),
-    //     );
-    // let bounding_box_pso = bounding_box_pipeline::Data {
-    //     mvp: [[0.0; 4]; 4],
-    //     out_color: window.output_color.clone(),
-    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
-    //     vertex_buffer: bounding_box_vertex_buffer,
-    // };
-
-
-
+    let mut just_texture_bundle = gfx::Bundle {
+        slice: jt_slice,
+        pso: jt_pso,
+        data: jt_data,
+    };
 
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
@@ -340,7 +330,15 @@ fn main() {
                 &window.output_color,
                 [0.3, 0.3, 0.3, 1.0],
             );
+            window.encoder.clear(
+                &terrain_bundle.data.out_color,
+                [0.3, 0.3, 0.3, 1.0],
+            );
             window.encoder.clear_depth(&window.output_stencil, 1.0);
+            window.encoder.clear_depth(
+                &terrain_bundle.data.out_depth,
+                1.0,
+            );
 
             let mvp = camera_controllers::model_view_projection(
                 vecmath::mat4_id(),
@@ -348,27 +346,40 @@ fn main() {
                 get_projection(window),
             );
 
-            terrain_data.mvp = mvp;
-            window.encoder.draw(
-                &terrain_slice,
-                &terrain_pso,
-                &terrain_data,
-            );
+            // println!("do i get here?");
+            terrain_bundle.data.mvp = mvp;
+            terrain_bundle.encode(&mut window.encoder);
 
-//             vo.mvp = mvp;
-//             window.encoder.draw(
-//                 &vector_slice,
-//                 &vector_pso,
-//                 &vector_data,
-//             );
+            // println!("just texture!");
+            just_texture_bundle.encode(&mut window.encoder);
         });
 
-        event.resize(|_, _| {
-            terrain_data.out_color = window.output_color.clone();
-            terrain_data.out_depth = window.output_stencil.clone();
+        event.resize(|height, width| {
+            let (depth_stencil_texture, depth_stencil_srv, depth_rtv) = factory
+                .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
+                .unwrap();
+            let (render_target_tex, render_target_srv, render_target_view) = factory
+                .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
+                .unwrap();
 
-            // vector_data.out_color = window.output_color.clone();
-            // vector_data.out_depth = window.output_stencil.clone();
+            terrain_bundle.data.out_color = render_target_view.clone();
+            terrain_bundle.data.out_depth = depth_rtv.clone();
+
+            just_texture_bundle.data.color_texture = (depth_stencil_srv, terrain_sampler.clone());
+            just_texture_bundle.data.out_color = window.output_color.clone();
+            just_texture_bundle.data.out_depth = window.output_stencil.clone();
+
+            // // let terrain_data = terrain_pipeline::Data {
+            // //     color_texture: (terrain_texture_view, terrain_sampler.clone()),
+            // //     mvp: [[0.0; 4]; 4],
+            // //     out_color: render_target_view.clone(),
+            // //     out_depth: depth_rtv.clone(),
+
+            // // terrain_bundle.data.out_color = window.output_color.clone();
+            // // terrain_bundle.data.out_depth = window.output_stencil.clone();
+
+            // // vector_data.out_color = window.output_color.clone();
+            // // vector_data.out_depth = window.output_stencil.clone();
         });
     }
 }
