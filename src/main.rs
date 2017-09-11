@@ -25,6 +25,100 @@ gfx_pipeline!(terrain_pipeline {
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
 });
 
+// glClear(GL_STENCIL_BUFFER_BIT);
+// glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+// glEnable( GL_CULL_FACE );
+// glEnable(GL_DEPTH_TEST);
+// glDepthMask(GL_FALSE);
+// glDepthFunc(GL_GEQUAL);
+// glEnable(GL_STENCIL_TEST);
+// glStencilFunc(GL_ALWAYS, 0, 0);
+// //set the stencil buffer operation
+// glStencilOp(GL_KEEP, GL_KEEP,GL_INCR);
+// //render the back-faces of the polyhedra
+// glCullFace( GL_FRONT );
+// DrawVectorPolyhedra();
+gfx_pipeline!(vector_volume_forward_pipeline {
+    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+        gfx::state::Depth {
+            fun: gfx::state::Comparison::GreaterEqual,
+            write: false,
+        },
+        gfx::state::Stencil::new(
+            gfx::state::Comparison::Always,
+            0,
+            (
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::IncrementClamp
+            ),
+        ),
+    ),
+    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+});
+
+// //set the stencil buffer operation
+// glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+// //render the front-faces of the polyhedra
+// glCullFace( GL_BACK );
+// DrawVectorPolyhedra();
+gfx_pipeline!(vector_volume_backward_pipeline {
+    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+        gfx::state::Depth {
+            fun: gfx::state::Comparison::GreaterEqual,
+            write: false,
+        },
+        gfx::state::Stencil::new(
+            gfx::state::Comparison::Always,
+            0,
+            (
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::DecrementClamp,
+            ),
+        ),
+    ),
+    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+});
+
+// //draw the vector data
+// //render the front-faces of the bounding box of the vector polyhedra
+// glDepthMask( GL_TRUE );
+// glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
+// glCullFace( GL_FRONT );
+// glDepthFunc(GL_GEQUAL);
+// //set the stencil buffer operation
+// glStencilFunc(GL_NOTEQUAL,0, 1);
+// glStencilOp( GL_KEEP, GL_KEEP, GL_KEEP );
+// DrawBoundingBoxofVectorPolyhedra();
+// //resume the default setting
+// glEnable( GL_CULL_FACE );
+// glCullFace( GL_BACK );
+// glDepthFunc(GL_LESS);
+// glDisable(GL_STENCIL_TEST)
+gfx_pipeline!(bounding_box_pipeline {
+    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+        gfx::state::Depth {
+            fun: gfx::state::Comparison::GreaterEqual,
+            write: true,
+        },
+        gfx::state::Stencil::new(
+            gfx::state::Comparison::NotEqual,
+            0,
+            (
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::Keep,
+            ),
+        ),
+    ),
+    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+});
+
 fn get_projection(window: &PistonWindow<Sdl2Window>) -> [[f32; 4]; 4] {
     let draw_size = window.window.draw_size();
 
@@ -41,6 +135,38 @@ fn get_elevation(x: f32, y: f32) -> f32 {
 }
 
 const TERRAIN_SIDE_LENGTH: u16 = 100;
+
+fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<u16>) {
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+
+    for (index, &(x, y)) in polygon.iter().enumerate() {
+        let above = [x, y, 20.1];
+        let below = [x, y, -20.1];
+
+        vertices.push(Vertex {
+            position: above,
+            tex_coords: [0.0, 0.0],
+        });
+        vertices.push(Vertex {
+            position: below,
+            tex_coords: [0.0, 0.0],
+        });
+
+        let a = 2 * index as u16;
+        let b = a + 1;
+        let c = 2 * ((index as u16 + 1) % (polygon.len() as u16));
+        let d = c + 1;
+
+        indices.extend_from_slice(&[a, b, d, d, c, a]);
+
+        if index != 0 && index != polygon.len() - 1 {
+            indices.extend_from_slice(&[0, a, c, 1, d, b]);
+        }
+    }
+
+    (vertices, indices)
+}
 
 fn main() {
     let mut window: PistonWindow<Sdl2Window> =
@@ -121,6 +247,86 @@ fn main() {
         vertex_buffer: terrain_vertex_buffer,
     };
 
+    // // share this between forward, backward, and bounding-box
+    // let vector_shader_set = factory
+    //     .create_shader_set(
+    //         include_bytes!("shaders/vector.vert"),
+    //         include_bytes!("shaders/vector.frag"),
+    //     )
+    //     .unwrap();
+
+    // let vector_polygon = vec![
+    //     (10.0, 10.0),
+    //     (20.0, 10.0),
+    //     (20.0, 20.0),
+    //     (10.0, 20.0),
+    //     (10.0, 10.0),
+    // ];
+    // let (vector_volume_vertices, vector_volume_indices) =
+    //     polygon_to_vertices_and_indices(&vector_polygon);
+    // let (vector_volume_vertex_buffer, vector_volume_slice) =
+    //     factory.create_vertex_buffer_with_slice(
+    //         &vector_volume_vertices,
+    //         vector_volume_indices.as_slice(),
+    //     );
+
+    // // forward-specific stuff
+    // let forward_pso = factory
+    //     .create_pipeline_state(
+    //         &vector_shader_set,
+    //         gfx::Primitive::TriangleList,
+    //         gfx::state::Rasterizer::new_fill().with_cull_back(),
+    //         vector_volume_forward_pipeline::new(),
+    //     )
+    //     .unwrap();
+    // let mut forward_data = vector_volume_forward_pipeline::Data {
+    //     mvp: [[0.0; 4]; 4],
+    //     out_color: window.output_color.clone(),
+    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
+    //     vertex_buffer: vector_volume_vertex_buffer,
+    // };
+
+    // // backward-specific stuff
+    // let backward_pso = factory
+    //     .create_pipeline_state(
+    //         &vector_shader_set,
+    //         gfx::Primitive::TriangleList,
+    //         gfx::state::Rasterizer::new_fill().with_cull_back(),
+    //         vector_volume_backward_pipeline::new(),
+    //     )
+    //     .unwrap();
+    // let mut backward_data = vector_volume_backward_pipeline::Data {
+    //     mvp: [[0.0; 4]; 4],
+    //     out_color: window.output_color.clone(),
+    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
+    //     vertex_buffer: vector_volume_vertex_buffer,
+    // };
+
+    // // bounding-box stuff
+    // let bounding_box_polygon = vec![
+    //     (-1.0, -1.0),
+    //     (TERRAIN_SIDE_LENGTH as f32 + 1.0, -1.0),
+    //     (TERRAIN_SIDE_LENGTH as f32 + 1.0, TERRAIN_SIDE_LENGTH as f32 + 1.0),
+    //     (-1.0, TERRAIN_SIDE_LENGTH as f32 + 1.0),
+    //     (-1.0, -1.0),
+    // ];
+    // let (bounding_box_vertices, bounding_box_indices) =
+    //     polygon_to_vertices_and_indices(&bounding_box_polygon);
+    // let (bounding_box_vertex_buffer, bounding_box_slice) =
+    //     factory.create_vertex_buffer_with_slice(
+    //         &bounding_box_vertices,
+    //         bounding_box_indices.as_slice(),
+    //     );
+    // let bounding_box_pso = bounding_box_pipeline::Data {
+    //     mvp: [[0.0; 4]; 4],
+    //     out_color: window.output_color.clone(),
+    //     depth_stencil: (window.output_stencil.clone(), (0, 0)),
+    //     vertex_buffer: bounding_box_vertex_buffer,
+    // };
+
+
+
+
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
 
@@ -136,22 +342,33 @@ fn main() {
             );
             window.encoder.clear_depth(&window.output_stencil, 1.0);
 
-            terrain_data.mvp = camera_controllers::model_view_projection(
+            let mvp = camera_controllers::model_view_projection(
                 vecmath::mat4_id(),
                 camera_controller.camera(render_args.ext_dt).orthogonal(),
                 get_projection(window),
             );
 
+            terrain_data.mvp = mvp;
             window.encoder.draw(
                 &terrain_slice,
                 &terrain_pso,
                 &terrain_data,
             );
+
+//             vo.mvp = mvp;
+//             window.encoder.draw(
+//                 &vector_slice,
+//                 &vector_pso,
+//                 &vector_data,
+//             );
         });
 
         event.resize(|_, _| {
             terrain_data.out_color = window.output_color.clone();
             terrain_data.out_depth = window.output_stencil.clone();
+
+            // vector_data.out_color = window.output_color.clone();
+            // vector_data.out_depth = window.output_stencil.clone();
         });
     }
 }
