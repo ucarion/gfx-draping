@@ -251,7 +251,6 @@ fn main() {
         )
         .unwrap();
 
-
     let (depth_stencil_texture, depth_stencil_srv, depth_rtv) = factory
         .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
         .unwrap();
@@ -261,7 +260,7 @@ fn main() {
         .unwrap();
 
     let terrain_data = terrain_pipeline::Data {
-        color_texture: (terrain_texture_view, terrain_sampler.clone()),
+        color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
         out_color: render_target_view.clone(),
         out_depth: depth_rtv.clone(),
@@ -272,6 +271,37 @@ fn main() {
         slice: terrain_slice,
         pso: terrain_pso,
         data: terrain_data,
+    };
+
+    let polygon_pso = factory
+        .create_pipeline_state(
+            &terrain_shader_set,
+            gfx::Primitive::TriangleList,
+            gfx::state::Rasterizer::new_fill().with_cull_back(),
+            terrain_pipeline::new(),
+        )
+        .unwrap();
+    let polygon = vec![
+        (40.0, -60.0),
+        (60.0, -60.0),
+        (60.0, -40.0),
+        (40.0, -40.0),
+        (40.0, -60.0),
+    ];
+    let (polygon_vertices, polygon_indices) = polygon_to_vertices_and_indices(&polygon);
+    let (polygon_vertex_buffer, polygon_slice) =
+        factory.create_vertex_buffer_with_slice(&polygon_vertices, &polygon_indices[..]);
+    let polygon_data = terrain_pipeline::Data {
+        color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
+        mvp: [[0.0; 4]; 4],
+        out_color: render_target_view.clone(),
+        out_depth: depth_rtv.clone(),
+        vertex_buffer: polygon_vertex_buffer,
+    };
+    let mut polygon_bundle = gfx::Bundle {
+        slice: polygon_slice,
+        pso: polygon_pso,
+        data: polygon_data,
     };
 
     let jt_vertices = vec![
@@ -350,6 +380,9 @@ fn main() {
             terrain_bundle.data.mvp = mvp;
             terrain_bundle.encode(&mut window.encoder);
 
+            polygon_bundle.data.mvp = mvp;
+            polygon_bundle.encode(&mut window.encoder);
+
             // println!("just texture!");
             just_texture_bundle.encode(&mut window.encoder);
         });
@@ -364,6 +397,8 @@ fn main() {
 
             terrain_bundle.data.out_color = render_target_view.clone();
             terrain_bundle.data.out_depth = depth_rtv.clone();
+            polygon_bundle.data.out_color = render_target_view.clone();
+            polygon_bundle.data.out_depth = depth_rtv.clone();
 
             just_texture_bundle.data.color_texture = (depth_stencil_srv, terrain_sampler.clone());
             just_texture_bundle.data.out_color = window.output_color.clone();
