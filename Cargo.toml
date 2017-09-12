@@ -6,6 +6,5 @@ authors = ["Ulysse Carion <ulysse@ulysse.io>"]
 [dependencies]
 camera_controllers = "0.22"
 gfx = "0.16"
-pistoncore-sdl2_window = "0.44"
 piston_window = "0.70"
 vecmath = "0.3"
