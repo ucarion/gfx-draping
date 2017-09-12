@@ -2,7 +2,6 @@
 extern crate gfx;
 
 extern crate camera_controllers;
-extern crate gfx_window_glutin;
 extern crate piston_window;
 extern crate vecmath;
 
@@ -181,11 +180,11 @@ fn main() {
         )
         .unwrap();
 
-    let (depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
+    let (_depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
         .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
         .unwrap();
 
-    let (render_target_tex, render_target_srv, render_target_view) = factory
+    let (_render_target_tex, _render_target_srv, render_target_view) = factory
         .create_render_target::<gfx::format::Srgba8>(800, 600)
         .unwrap();
 
@@ -226,9 +225,7 @@ fn main() {
         mvp: [[0.0; 4]; 4],
         out_color: render_target_view.clone(),
         out_depth_stencil: (depth_stencil_rtv.clone(), (0, 0)),
-        // out_depth: depth_rtv.clone(),
         vertex_buffer: polygon_vertex_buffer,
-        // out_stencil: (depth_rtv.clone(), (800, 600)),
     };
     let mut polygon_bundle = gfx::Bundle {
         slice: polygon_slice,
@@ -260,14 +257,8 @@ fn main() {
         )
         .unwrap();
 
-    let render_target_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-        gfx::texture::FilterMethod::Bilinear,
-        gfx::texture::WrapMode::Clamp,
-    ));
-
     let jt_data = just_texture_pipeline::Data {
         color_texture: (depth_stencil_srv, terrain_sampler.clone()),
-        // color_texture: (render_target_srv, terrain_sampler.clone()),
         out_color: window.output_color.clone(),
         out_depth: window.output_stencil.clone(),
         vertex_buffer: jt_vbuf,
@@ -282,47 +273,31 @@ fn main() {
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
 
-    let mut new_dimensions = None;
-
     while let Some(event) = window.next() {
         camera_controller.event(&event);
 
         event.resize(|height, width| {
-            println!("Resize!");
-            new_dimensions = Some((height, width));
+            just_texture_bundle.data.out_color = window.output_color.clone();
+            just_texture_bundle.data.out_depth = window.output_stencil.clone();
 
+            let (_depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
+                .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
+                .unwrap();
+            let (_render_target_tex, _render_target_srv, render_target_view) = factory
+                .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
+                .unwrap();
+
+            terrain_bundle.data.out_color = render_target_view.clone();
+            terrain_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
+            polygon_bundle.data.out_color = render_target_view.clone();
+            polygon_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
+
+            just_texture_bundle.data.color_texture.0 = depth_stencil_srv;
+            just_texture_bundle.data.out_color = window.output_color.clone();
+            just_texture_bundle.data.out_depth = window.output_stencil.clone();
         });
 
         window.draw_3d(&event, |window| {
-            if let Some((height, width)) = new_dimensions {
-                println!("Create new stuff");
-                let (window_render_target, window_depth_stencil) =
-                    gfx_window_glutin::new_views(&window.window.window);
-
-                let (depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
-                    .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
-                    .unwrap();
-                let (render_target_tex, render_target_srv, render_target_view) = factory
-                    .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
-                    .unwrap();
-
-                terrain_bundle.data.out_color = render_target_view.clone();
-                terrain_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
-                polygon_bundle.data.out_color = render_target_view.clone();
-                polygon_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
-
-                just_texture_bundle.data.color_texture.0 = depth_stencil_srv;
-                // just_texture_bundle.data.out_color = window.output_color.clone();
-                // just_texture_bundle.data.out_depth = window.output_stencil.clone();
-                just_texture_bundle.data.out_color = window_render_target;
-                just_texture_bundle.data.out_depth = window_depth_stencil;
-
-                new_dimensions = None;
-                println!("Done creating new stuff");
-            } else {
-                println!("Drawing without resize");
-            }
-
             let render_args = event.render_args().unwrap();
 
             window.encoder.clear(
