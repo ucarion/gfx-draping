@@ -2,27 +2,43 @@
 extern crate gfx;
 
 extern crate camera_controllers;
+extern crate gfx_window_glutin;
 extern crate piston_window;
-extern crate sdl2_window;
 extern crate vecmath;
 
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
 use gfx::Factory;
 use gfx::traits::FactoryExt;
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
-use sdl2_window::Sdl2Window;
 
 gfx_vertex_struct!(Vertex {
     position: [f32; 3] = "a_position",
     tex_coords: [f32; 2] = "a_tex_coords",
 });
 
+// out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
+// out_stencil: gfx::StencilTarget<gfx::format::DepthStencil> = gfx::state::Stencil::new(
+//     gfx::state::Comparison::LessEqual,
+//     0,
+//     (gfx::state::StencilOp::IncrementClamp, gfx::state::StencilOp::Keep, gfx::state::StencilOp::Keep),
+// ),
 gfx_pipeline!(terrain_pipeline {
     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
-    out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+    out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+        gfx::preset::depth::LESS_EQUAL_WRITE,
+        gfx::state::Stencil::new(
+            gfx::state::Comparison::LessEqual,
+            255,
+            (
+                gfx::state::StencilOp::IncrementClamp,
+                gfx::state::StencilOp::Keep,
+                gfx::state::StencilOp::Keep
+            ),
+        ),
+    ),
 });
 
 gfx_vertex_struct!(PlainVertex {
@@ -37,101 +53,16 @@ gfx_pipeline!(just_texture_pipeline {
     vertex_buffer: gfx::VertexBuffer<PlainVertex> = (),
 });
 
-// glClear(GL_STENCIL_BUFFER_BIT);
-// glColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
-// glEnable( GL_CULL_FACE );
-// glEnable(GL_DEPTH_TEST);
-// glDepthMask(GL_FALSE);
-// glDepthFunc(GL_GEQUAL);
-// glEnable(GL_STENCIL_TEST);
-// glStencilFunc(GL_ALWAYS, 0, 0);
-// //set the stencil buffer operation
-// glStencilOp(GL_KEEP, GL_KEEP,GL_INCR);
-// //render the back-faces of the polyhedra
-// glCullFace( GL_FRONT );
-// DrawVectorPolyhedra();
-gfx_pipeline!(vector_volume_forward_pipeline {
-    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::state::Depth {
-            fun: gfx::state::Comparison::GreaterEqual,
-            write: false,
-        },
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::Always,
-            0,
-            (
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::IncrementClamp
-            ),
-        ),
-    ),
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-});
+// // XXX these only work for the z-fail approach
+// gfx_pipeline!(back_face_pipeline {
+//     polyhedron: gfx::VertexBuffer<Vertex> = (),
+//     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+//     out_depth: gfx::StencilTarget<gfx::format::DepthStencil> = gfx::state::Stencil::new(
 
-// //set the stencil buffer operation
-// glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
-// //render the front-faces of the polyhedra
-// glCullFace( GL_BACK );
-// DrawVectorPolyhedra();
-gfx_pipeline!(vector_volume_backward_pipeline {
-    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::state::Depth {
-            fun: gfx::state::Comparison::GreaterEqual,
-            write: false,
-        },
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::Always,
-            0,
-            (
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::DecrementClamp,
-            ),
-        ),
-    ),
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-});
+//     ),
+// });
 
-// //draw the vector data
-// //render the front-faces of the bounding box of the vector polyhedra
-// glDepthMask( GL_TRUE );
-// glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
-// glCullFace( GL_FRONT );
-// glDepthFunc(GL_GEQUAL);
-// //set the stencil buffer operation
-// glStencilFunc(GL_NOTEQUAL,0, 1);
-// glStencilOp( GL_KEEP, GL_KEEP, GL_KEEP );
-// DrawBoundingBoxofVectorPolyhedra();
-// //resume the default setting
-// glEnable( GL_CULL_FACE );
-// glCullFace( GL_BACK );
-// glDepthFunc(GL_LESS);
-// glDisable(GL_STENCIL_TEST)
-gfx_pipeline!(bounding_box_pipeline {
-    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
-    depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::state::Depth {
-            fun: gfx::state::Comparison::GreaterEqual,
-            write: true,
-        },
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::NotEqual,
-            0,
-            (
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::Keep,
-            ),
-        ),
-    ),
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-});
-
-fn get_projection(window: &PistonWindow<Sdl2Window>) -> [[f32; 4]; 4] {
+fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
     let draw_size = window.window.draw_size();
 
     CameraPerspective {
@@ -181,12 +112,11 @@ fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<
 }
 
 fn main() {
-    let mut window: PistonWindow<Sdl2Window> =
-        WindowSettings::new("Shadow Volume Draping Demo", [800, 600])
-            .exit_on_esc(true)
-            .opengl(OpenGL::V3_2)
-            .build()
-            .unwrap();
+    let mut window: PistonWindow = WindowSettings::new("Shadow Volume Draping Demo", [800, 600])
+        .exit_on_esc(true)
+        .opengl(OpenGL::V3_2)
+        .build()
+        .unwrap();
 
     let mut factory = window.factory.clone();
 
@@ -251,7 +181,7 @@ fn main() {
         )
         .unwrap();
 
-    let (depth_stencil_texture, depth_stencil_srv, depth_rtv) = factory
+    let (depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
         .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
         .unwrap();
 
@@ -263,7 +193,7 @@ fn main() {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
         out_color: render_target_view.clone(),
-        out_depth: depth_rtv.clone(),
+        out_depth_stencil: (depth_stencil_rtv.clone(), (0, 0)),
         vertex_buffer: terrain_vertex_buffer,
     };
 
@@ -295,8 +225,10 @@ fn main() {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
         out_color: render_target_view.clone(),
-        out_depth: depth_rtv.clone(),
+        out_depth_stencil: (depth_stencil_rtv.clone(), (0, 0)),
+        // out_depth: depth_rtv.clone(),
         vertex_buffer: polygon_vertex_buffer,
+        // out_stencil: (depth_rtv.clone(), (800, 600)),
     };
     let mut polygon_bundle = gfx::Bundle {
         slice: polygon_slice,
@@ -350,24 +282,67 @@ fn main() {
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
 
+    let mut new_dimensions = None;
+
     while let Some(event) = window.next() {
         camera_controller.event(&event);
 
+        event.resize(|height, width| {
+            println!("Resize!");
+            new_dimensions = Some((height, width));
+
+        });
+
         window.draw_3d(&event, |window| {
+            if let Some((height, width)) = new_dimensions {
+                println!("Create new stuff");
+                let (window_render_target, window_depth_stencil) =
+                    gfx_window_glutin::new_views(&window.window.window);
+
+                let (depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
+                    .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
+                    .unwrap();
+                let (render_target_tex, render_target_srv, render_target_view) = factory
+                    .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
+                    .unwrap();
+
+                terrain_bundle.data.out_color = render_target_view.clone();
+                terrain_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
+                polygon_bundle.data.out_color = render_target_view.clone();
+                polygon_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
+
+                just_texture_bundle.data.color_texture.0 = depth_stencil_srv;
+                // just_texture_bundle.data.out_color = window.output_color.clone();
+                // just_texture_bundle.data.out_depth = window.output_stencil.clone();
+                just_texture_bundle.data.out_color = window_render_target;
+                just_texture_bundle.data.out_depth = window_depth_stencil;
+
+                new_dimensions = None;
+                println!("Done creating new stuff");
+            } else {
+                println!("Drawing without resize");
+            }
+
             let render_args = event.render_args().unwrap();
 
             window.encoder.clear(
                 &window.output_color,
                 [0.3, 0.3, 0.3, 1.0],
             );
+            window.encoder.clear_depth(&window.output_stencil, 1.0);
+
             window.encoder.clear(
                 &terrain_bundle.data.out_color,
                 [0.3, 0.3, 0.3, 1.0],
             );
-            window.encoder.clear_depth(&window.output_stencil, 1.0);
+
             window.encoder.clear_depth(
-                &terrain_bundle.data.out_depth,
+                &terrain_bundle.data.out_depth_stencil.0,
                 1.0,
+            );
+            window.encoder.clear_stencil(
+                &terrain_bundle.data.out_depth_stencil.0,
+                0,
             );
 
             let mvp = camera_controllers::model_view_projection(
@@ -376,45 +351,13 @@ fn main() {
                 get_projection(window),
             );
 
-            // println!("do i get here?");
             terrain_bundle.data.mvp = mvp;
             terrain_bundle.encode(&mut window.encoder);
 
             polygon_bundle.data.mvp = mvp;
             polygon_bundle.encode(&mut window.encoder);
 
-            // println!("just texture!");
             just_texture_bundle.encode(&mut window.encoder);
-        });
-
-        event.resize(|height, width| {
-            let (depth_stencil_texture, depth_stencil_srv, depth_rtv) = factory
-                .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
-                .unwrap();
-            let (render_target_tex, render_target_srv, render_target_view) = factory
-                .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
-                .unwrap();
-
-            terrain_bundle.data.out_color = render_target_view.clone();
-            terrain_bundle.data.out_depth = depth_rtv.clone();
-            polygon_bundle.data.out_color = render_target_view.clone();
-            polygon_bundle.data.out_depth = depth_rtv.clone();
-
-            just_texture_bundle.data.color_texture = (depth_stencil_srv, terrain_sampler.clone());
-            just_texture_bundle.data.out_color = window.output_color.clone();
-            just_texture_bundle.data.out_depth = window.output_stencil.clone();
-
-            // // let terrain_data = terrain_pipeline::Data {
-            // //     color_texture: (terrain_texture_view, terrain_sampler.clone()),
-            // //     mvp: [[0.0; 4]; 4],
-            // //     out_color: render_target_view.clone(),
-            // //     out_depth: depth_rtv.clone(),
-
-            // // terrain_bundle.data.out_color = window.output_color.clone();
-            // // terrain_bundle.data.out_depth = window.output_stencil.clone();
-
-            // // vector_data.out_color = window.output_color.clone();
-            // // vector_data.out_depth = window.output_stencil.clone();
         });
     }
 }
