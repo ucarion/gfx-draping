@@ -29,12 +29,12 @@ gfx_pipeline!(terrain_pipeline {
     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
         gfx::preset::depth::LESS_EQUAL_WRITE,
         gfx::state::Stencil::new(
-            gfx::state::Comparison::LessEqual,
+            gfx::state::Comparison::Always,
             255,
             (
-                gfx::state::StencilOp::IncrementClamp,
-                gfx::state::StencilOp::Keep,
-                gfx::state::StencilOp::Keep
+                gfx::state::StencilOp::Zero,
+                gfx::state::StencilOp::Zero,
+                gfx::state::StencilOp::Zero,
             ),
         ),
     ),
@@ -48,7 +48,7 @@ gfx_vertex_struct!(PlainVertex {
 gfx_pipeline!(just_texture_pipeline {
     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
     out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-    color_texture: gfx::TextureSampler<f32> = "t_texture",
+    color_texture: gfx::TextureSampler<u32> = "t_texture",
     vertex_buffer: gfx::VertexBuffer<PlainVertex> = (),
 });
 
@@ -183,9 +183,16 @@ fn main() {
     let (_depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
         .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
         .unwrap();
-
     let (_render_target_tex, _render_target_srv, render_target_view) = factory
         .create_render_target::<gfx::format::Srgba8>(800, 600)
+        .unwrap();
+
+    let stencil_srv = factory
+        .view_texture_as_shader_resource::<(gfx::format::D24_S8, gfx::format::Uint)>(
+            &_depth_stencil_texture,
+            (0, 0),
+            gfx::format::Swizzle::new(),
+        )
         .unwrap();
 
     let terrain_data = terrain_pipeline::Data {
@@ -257,8 +264,9 @@ fn main() {
         )
         .unwrap();
 
+
     let jt_data = just_texture_pipeline::Data {
-        color_texture: (depth_stencil_srv, terrain_sampler.clone()),
+        color_texture: (stencil_srv, terrain_sampler.clone()),
         out_color: window.output_color.clone(),
         out_depth: window.output_stencil.clone(),
         vertex_buffer: jt_vbuf,
@@ -287,12 +295,20 @@ fn main() {
                 .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
                 .unwrap();
 
+            let stencil_srv = factory
+                .view_texture_as_shader_resource::<(gfx::format::D24_S8, gfx::format::Uint)>(
+                    &_depth_stencil_texture,
+                    (0, 0),
+                    gfx::format::Swizzle::new(),
+                )
+                .unwrap();
+
             terrain_bundle.data.out_color = render_target_view.clone();
             terrain_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
             polygon_bundle.data.out_color = render_target_view.clone();
             polygon_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
 
-            just_texture_bundle.data.color_texture.0 = depth_stencil_srv;
+            just_texture_bundle.data.color_texture.0 = stencil_srv;
             just_texture_bundle.data.out_color = window.output_color.clone();
             just_texture_bundle.data.out_depth = window.output_stencil.clone();
         });
