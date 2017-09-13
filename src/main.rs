@@ -62,7 +62,11 @@ gfx_pipeline!(z_fail_polyhedron_pipeline {
 
 // Only draw back faces with this!
 gfx_pipeline!(z_fail_bounding_box_pipeline {
-    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+    out_color: gfx::BlendTarget<gfx::format::Srgba8> = (
+        "o_color",
+        gfx::state::ColorMask::all(),
+        gfx::preset::blend::ALPHA,
+    ),
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
@@ -107,11 +111,11 @@ fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<
 
         vertices.push(Vertex {
             position: above,
-            tex_coords: [1.0, 0.0],
+            tex_coords: [0.0, 0.0],
         });
         vertices.push(Vertex {
             position: below,
-            tex_coords: [1.0, 0.0],
+            tex_coords: [0.0, 0.0],
         });
 
         let a = 2 * index as u16;
@@ -264,6 +268,15 @@ fn main() {
             z_fail_bounding_box_pipeline::new(),
         )
         .unwrap();
+
+    let bbox_texture_data = vec![[0, 0, 255, 100]];
+    let (_, bbox_texture_view) = factory
+        .create_texture_immutable::<gfx::format::Srgba8>(
+            gfx::texture::Kind::D2(1, 1, gfx::texture::AaMode::Single),
+            &[bbox_texture_data.as_slice()],
+        )
+        .unwrap();
+
     let bbox_points = vec![
         (0.0, -(TERRAIN_SIDE_LENGTH as f32)),
         (TERRAIN_SIDE_LENGTH as f32, -(TERRAIN_SIDE_LENGTH as f32)),
@@ -279,7 +292,7 @@ fn main() {
         out_color: window.output_color.clone(),
         out_depth_stencil: (window.output_stencil.clone(), (0, 0)),
         vertex_buffer: bbox_vertex_buffer,
-        color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
+        color_texture: (bbox_texture_view.clone(), terrain_sampler.clone()),
     };
     let mut bbox_bundle = gfx::Bundle {
         slice: bbox_slice,
