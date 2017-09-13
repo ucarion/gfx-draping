@@ -324,6 +324,7 @@ fn main() {
                 [0.3, 0.3, 0.3, 1.0],
             );
             window.encoder.clear_depth(&window.output_stencil, 1.0);
+            window.encoder.clear_stencil(&window.output_stencil, 0);
             let mvp = camera_controllers::model_view_projection(
                 vecmath::mat4_id(),
                 camera_controller.camera(render_args.ext_dt).orthogonal(),
