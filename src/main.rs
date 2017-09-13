@@ -233,6 +233,12 @@ fn main() {
         (60.0, -40.0),
         (40.0, -40.0),
         (40.0, -60.0),
+
+        (45.0, -55.0),
+        (45.0, -45.0),
+        (55.0, -45.0),
+        (55.0, -55.0),
+        (45.0, -55.0),
     ];
     let (polygon_vertices, polygon_indices) = polygon_to_vertices_and_indices(&polygon);
     let (polygon_vertex_buffer, polygon_slice) =
