@@ -15,12 +15,6 @@ gfx_vertex_struct!(Vertex {
     tex_coords: [f32; 2] = "a_tex_coords",
 });
 
-// out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-// out_stencil: gfx::StencilTarget<gfx::format::DepthStencil> = gfx::state::Stencil::new(
-//     gfx::state::Comparison::LessEqual,
-//     0,
-//     (gfx::state::StencilOp::IncrementClamp, gfx::state::StencilOp::Keep, gfx::state::StencilOp::Keep),
-// ),
 gfx_pipeline!(terrain_pipeline {
     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
@@ -86,27 +80,6 @@ gfx_pipeline!(z_fail_bounding_box_pipeline {
     ),
 });
 
-// gfx_vertex_struct!(PlainVertex {
-//     // this is to make rustfmt go away
-//     coords: [f32; 2] = "a_coords",
-// });
-
-// gfx_pipeline!(just_texture_pipeline {
-//     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
-//     out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-//     color_texture: gfx::TextureSampler<u32> = "t_texture",
-//     vertex_buffer: gfx::VertexBuffer<PlainVertex> = (),
-// });
-
-// // XXX these only work for the z-fail approach
-// gfx_pipeline!(back_face_pipeline {
-//     polyhedron: gfx::VertexBuffer<Vertex> = (),
-//     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
-//     out_depth: gfx::StencilTarget<gfx::format::DepthStencil> = gfx::state::Stencil::new(
-
-//     ),
-// });
-
 fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
     let draw_size = window.window.draw_size();
 
@@ -134,11 +107,11 @@ fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<
 
         vertices.push(Vertex {
             position: above,
-            tex_coords: [0.0, 0.0],
+            tex_coords: [1.0, 0.0],
         });
         vertices.push(Vertex {
             position: below,
-            tex_coords: [0.0, 0.0],
+            tex_coords: [1.0, 0.0],
         });
 
         let a = 2 * index as u16;
@@ -225,21 +198,6 @@ fn main() {
             terrain_pipeline::new(),
         )
         .unwrap();
-
-    // let (_depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
-    //     .create_depth_stencil::<gfx::format::DepthStencil>(800, 600)
-    //     .unwrap();
-    // let (_render_target_tex, _render_target_srv, render_target_view) = factory
-    //     .create_render_target::<gfx::format::Srgba8>(800, 600)
-    //     .unwrap();
-
-    // let stencil_srv = factory
-    //     .view_texture_as_shader_resource::<(gfx::format::D24_S8, gfx::format::Uint)>(
-    //         &_depth_stencil_texture,
-    //         (0, 0),
-    //         gfx::format::Swizzle::new(),
-    //     )
-    //     .unwrap();
 
     let terrain_data = terrain_pipeline::Data {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
@@ -329,39 +287,14 @@ fn main() {
     while let Some(event) = window.next() {
         camera_controller.event(&event);
 
-        event.resize(|height, width| {
-            // just_texture_bundle.data.out_color = window.output_color.clone();
-            // just_texture_bundle.data.out_depth = window.output_stencil.clone();
-
-            // let (_depth_stencil_texture, depth_stencil_srv, depth_stencil_rtv) = factory
-            //     .create_depth_stencil::<gfx::format::DepthStencil>(height as u16, width as u16)
-            //     .unwrap();
-            // let (_render_target_tex, _render_target_srv, render_target_view) = factory
-            //     .create_render_target::<gfx::format::Srgba8>(height as u16, width as u16)
-            //     .unwrap();
-
-            // let stencil_srv = factory
-            //     .view_texture_as_shader_resource::<(gfx::format::D24_S8, gfx::format::Uint)>(
-            //         &_depth_stencil_texture,
-            //         (0, 0),
-            //         gfx::format::Swizzle::new(),
-            //     )
-            //     .unwrap();
-
+        event.resize(|_, _| {
             terrain_bundle.data.out_color = window.output_color.clone();
             terrain_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+
             polygon_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+
             bbox_bundle.data.out_color = window.output_color.clone();
             bbox_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
-
-            // terrain_bundle.data.out_color = render_target_view.clone();
-            // terrain_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
-            // polygon_bundle.data.out_color = render_target_view.clone();
-            // polygon_bundle.data.out_depth_stencil = (depth_stencil_rtv.clone(), (0, 0));
-
-            // just_texture_bundle.data.color_texture.0 = stencil_srv;
-            // just_texture_bundle.data.out_color = window.output_color.clone();
-            // just_texture_bundle.data.out_depth = window.output_stencil.clone();
         });
 
         window.draw_3d(&event, |window| {
@@ -372,21 +305,6 @@ fn main() {
                 [0.3, 0.3, 0.3, 1.0],
             );
             window.encoder.clear_depth(&window.output_stencil, 1.0);
-            // window.encoder.clear_stencil(
-            //     &terrain_bundle.data.out_depth_stencil.0,
-            //     0,
-            // );
-
-            // window.encoder.clear(
-            //     &terrain_bundle.data.out_color,
-            //     [0.3, 0.3, 0.3, 1.0],
-            // );
-
-            // window.encoder.clear_depth(
-            //     &terrain_bundle.data.out_depth_stencil.0,
-            //     1.0,
-            // );
-
             let mvp = camera_controllers::model_view_projection(
                 vecmath::mat4_id(),
                 camera_controller.camera(render_args.ext_dt).orthogonal(),
