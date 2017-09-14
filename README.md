@@ -1,12 +1,22 @@
 # gfx\_draping
 
+![A screenshot of this library in action](screenshot.png)
+
+> An example of this crate in action. Two semi-transparent polygons (a black
+> triangle and a blue square with two holes in it) are rendered on a sinusoidal
+> terrain.
+>
+> Note how the polygons rise and fall with the terrain, and can be partially
+> occluded by a bump/mountain in the way.
+
 This is a library for helping you draw polygons on a terrain. It uses a
 screen-space algorithm based on the depth and stencil buffers, and performance
 is affected only by the complexity of the polygons you're drawing not the
 terrain it's drawn on.
 
 This library is a Rust implementation the algorithm described by [Schneider &
-Klein (2007)][sch2007].
+Klein (2007)][sch2007], titled "Efficient and Accurate Rendering of Vector Data
+on Virtual Landscapes".
 
 For an example of what this crate can do, run the example:
 
@@ -115,5 +125,16 @@ fn main() {
     }
 }
 ```
+
+## TODO:
+
+If any of these problems interest you, open an issue or contact me, and I can
+give you a hand. Or just open a PR if you're bold! :smile:
+
+* Add support for non-OpenGL backends.
+* Implement the z-pass algorithm described in Schneider (2007). This algorithm
+  can be slightly faster, but can only be used when the bounding box of the
+polygon doesn't intersect with the near plane of the view frustum. Currently,
+only the z-fail method, which works in all cases, is currently implemented.
 
 [sch2007]: http://cg.cs.uni-bonn.de/en/publications/paper-details/schneider-2007-efficient/
