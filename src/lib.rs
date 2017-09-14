@@ -72,6 +72,7 @@ pub struct DrapingRenderer<R: gfx::Resources> {
 }
 
 impl<R: gfx::Resources> DrapingRenderer<R> {
+    /// Set up the pipeline state objects needed for rendering draped polygons.
     pub fn new<F: gfx::Factory<R>>(factory: &mut F) -> DrapingRenderer<R> {
         DrapingRenderer {
             polyhedron_pso: Self::polyhedron_pso(factory),
@@ -79,6 +80,15 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         }
     }
 
+    /// Render a single `DrapeablePolygon` as `color`.
+    ///
+    /// *Note:* The depth buffer in `depth_stencil_target` should contain the depth values of your
+    /// terrain -- in other words, draw your terrain just before you call this function, and make
+    /// sure you don't clear the buffer until after rendering all the polygons you wish to draw.
+    ///
+    /// *Note:* In addition, the stencil buffer should be cleared to zero before calling this
+    /// function. The stencil buffer is guaranteed to remain zero after each call, so there is no
+    /// need to clear the stencil buffer between calls to this function.
     pub fn render<C: gfx::CommandBuffer<R>>(
         &self,
         encoder: &mut gfx::Encoder<R, C>,
@@ -171,6 +181,19 @@ pub struct DrapeablePolygon<R: gfx::Resources> {
 }
 
 impl<R: gfx::Resources> DrapeablePolygon<R> {
+    /// Prepare vertex and index buffers needed for rendering a individual draped polygon.
+    ///
+    /// `points` should be the concatenation of the rings in a polygon. The first ring should be
+    /// the exterior ring, and then the interior rings should follow.
+    ///
+    /// A "ring" is a sequence of points, where the first and last point are the same. The exterior
+    /// ring should be *positively oriented* -- that is, it should go in counter-clockwise order.
+    /// The interior rings should be *negatively oriented*.
+    ///
+    /// `bounds` should be the `(min, max)` values along each dimension the area enclosed by the
+    /// polygon; they define an axis-aligned bounding rectangular prism for the polygon.
+    /// `points[0]` should have the min-max values along the x-axis, `points[1]` should have
+    /// min-max y-values, and `points[2]` should have min-max z-values/elevations.
     pub fn new_from_points<F: gfx::Factory<R>>(
         factory: &mut F,
         points: &[(f32, f32)],
