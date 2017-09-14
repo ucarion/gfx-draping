@@ -137,25 +137,43 @@ fn main() {
         data: terrain_data,
     };
 
-    let polygon = vec![
+    let polygon1 = vec![
+        // Exterior ring
         (40.0, -60.0),
         (60.0, -60.0),
         (60.0, -40.0),
         (40.0, -40.0),
         (40.0, -60.0),
 
+        // Interior ring #1
         (49.0, -55.0),
         (49.0, -45.0),
         (59.0, -45.0),
         (59.0, -55.0),
         (49.0, -55.0),
-    ];
 
-    let polygon_bounds = [(40.0, 60.0), (-60.0, -40.0), (-21.0, 21.0)];
+        // Interior ring #2
+        (41.0, -42.0),
+        (41.0, -41.0),
+        (42.0, -41.0),
+        (42.0, -42.0),
+        (41.0, -42.0),
+    ];
+    let polygon1_bounds = [(40.0, 60.0), (-60.0, -40.0), (-20.0, 20.0)];
+
+    let polygon2 = vec![
+        (20.0, -20.0),
+        (30.0, -20.0),
+        (20.0, -30.0),
+        (20.0, -20.0),
+    ];
+    let polygon2_bounds = [(20.0, 30.0), (-30.0, -20.0), (-20.0, 20.0)];
 
     let renderer = DrapingRenderer::new(&mut factory);
-    let drapeable_polygon =
-        DrapeablePolygon::new_from_points(&mut factory, &polygon, &polygon_bounds);
+    let drapeable_polygon1 =
+        DrapeablePolygon::new_from_points(&mut factory, &polygon1, &polygon1_bounds);
+    let drapeable_polygon2 =
+        DrapeablePolygon::new_from_points(&mut factory, &polygon2, &polygon2_bounds);
 
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
@@ -187,7 +205,16 @@ fn main() {
                 window.output_stencil.clone(),
                 mvp,
                 [0.0, 0.0, 1.0, 0.5],
-                &drapeable_polygon,
+                &drapeable_polygon1,
+            );
+
+            renderer.render(
+                &mut window.encoder,
+                window.output_color.clone(),
+                window.output_stencil.clone(),
+                mvp,
+                [0.0, 0.0, 0.0, 0.8],
+                &drapeable_polygon2,
             );
         });
 
