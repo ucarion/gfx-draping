@@ -171,10 +171,14 @@ fn main() {
     let drapeable_polygons: Vec<_> = multi_polygon
         .into_iter()
         .map(|polygon| {
+            let polygon_bbox = polygon.exterior.bbox().unwrap();
+            let bottom_left = transform_coords(&bbox, (polygon_bbox.xmin, polygon_bbox.ymin));
+            let top_right = transform_coords(&bbox, (polygon_bbox.xmax, polygon_bbox.ymax));
+
             let bounds = [
-                (0.0, max_x_value as f32),
-                (-(max_y_value as f32), 0.0),
-                (-11.0, 11.0),
+                (bottom_left.0, top_right.0),
+                (bottom_left.1, top_right.1),
+                (-10.0, 10.0),
             ];
 
             let mut points = vec![];
