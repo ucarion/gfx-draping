@@ -246,9 +246,9 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
                 let below = Vertex { position: [x, y, height_lower_bound] };
                 let vertices = vec![above, below];
 
-                let above_index = 2 * index as u16;
+                let above_index = 2 * index as u32;
                 let below_index = above_index + 1;
-                let after_above_index = 2 * ((1 + index) % points.len()) as u16;
+                let after_above_index = 2 * ((1 + index) % points.len()) as u32;
                 let after_below_index = after_above_index + 1;
 
                 // When on an exterior ring, whose points are in counter-clockwise orientation,

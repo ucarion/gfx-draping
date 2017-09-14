@@ -13,5 +13,9 @@ gfx = "0.16"
 
 [dev-dependencies]
 camera_controllers = "0.22"
+fps_counter = "0.2"
+geo = "0.4"
+geojson = "0.8"
+gfx_text = "0.18"
 piston_window = "0.70"
 vecmath = "0.3"
