@@ -1,6 +1,6 @@
 # gfx\_draping
 
-![A screenshot of this library in action](screenshot.png)
+![A screenshot of this library in action](screenshot1.png)
 
 > An example of this crate in action. Two semi-transparent polygons (a black
 > triangle and a blue square with two holes in it) are rendered on a sinusoidal
@@ -9,21 +9,37 @@
 > Note how the polygons rise and fall with the terrain, and can be partially
 > occluded by a bump/mountain in the way.
 
+![Another screenshot](screenshot2.png)
+
+> Another example, showing the Republic of South Africa. Note the hole in the
+> mainland part of the country (which is where South Africa borders the Kingdom
+> of Lesotho, a separate country), and the distant Marion Islands at the bottom
+> right.
+
 This is a library for helping you draw polygons on a terrain. It uses a
-screen-space algorithm based on the depth and stencil buffers, and performance
-is affected only by the complexity of the polygons you're drawing not the
-terrain it's drawn on.
+screen-space algorithm based on the depth and stencil buffers. Performance is
+affected only by the complexity of the polygons you're drawing, not the terrain
+it's drawn on.
 
 This library is a Rust implementation the algorithm described by [Schneider &
 Klein (2007)][sch2007], titled "Efficient and Accurate Rendering of Vector Data
 on Virtual Landscapes".
 
-For an example of what this crate can do, run the example:
+The first screenshot was taken from this minimalist demo:
 
 ```bash
 # You'll want to zoom out to see anything. Do that by holding down CTRL and
 # dragging down with your mouse. Then pan around with shift+drag.
 cargo run --example demo
+```
+
+The second screenshot was taken from the `south_africa` demo, which demonstrates
+how to combine this library with GIS data:
+
+```bash
+# See instructions above on how to use the camera. Be sure to use --release,
+# otherwise you won't get a smooth, 60 fps experience.
+cargo run --release --example south_africa
 ```
 
 ## Can I use this library?
