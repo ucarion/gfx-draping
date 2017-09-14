@@ -1,344 +1,361 @@
-#[macro_use]
-extern crate gfx;
+// #[macro_use]
+// extern crate gfx;
 
-extern crate camera_controllers;
-extern crate piston_window;
-extern crate vecmath;
+// extern crate gfx_draping;
+// extern crate camera_controllers;
+// extern crate piston_window;
+// extern crate vecmath;
 
-use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
-use gfx::Factory;
-use gfx::traits::FactoryExt;
-use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
+// use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
+// use gfx::Factory;
+// use gfx::traits::FactoryExt;
+// use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
-gfx_vertex_struct!(Vertex {
-    position: [f32; 3] = "a_position",
-    tex_coords: [f32; 2] = "a_tex_coords",
-});
+// gfx_vertex_struct!(Vertex {
+//     position: [f32; 3] = "a_position",
+//     tex_coords: [f32; 2] = "a_tex_coords",
+// });
 
-gfx_pipeline!(terrain_pipeline {
-    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
-    color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-    out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::preset::depth::LESS_EQUAL_WRITE,
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::Always,
-            255,
-            (
-                gfx::state::StencilOp::Keep, // never happens if Comparison::Always
-                gfx::state::StencilOp::Keep, // when depth test fails
-                gfx::state::StencilOp::Keep, // when depth test passes
-            ),
-        ),
-    ),
-});
+// gfx_pipeline!(terrain_pipeline {
+//     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+//     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
+//     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+//     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+//     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+//         gfx::preset::depth::LESS_EQUAL_WRITE,
+//         gfx::state::Stencil::new(
+//             gfx::state::Comparison::Always,
+//             255,
+//             (
+//                 gfx::state::StencilOp::Keep, // never happens if Comparison::Always
+//                 gfx::state::StencilOp::Keep, // when depth test fails
+//                 gfx::state::StencilOp::Keep, // when depth test passes
+//             ),
+//         ),
+//     ),
+// });
 
-gfx_pipeline!(z_fail_polyhedron_pipeline {
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-    out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::preset::depth::LESS_EQUAL_TEST,
-        gfx::state::Stencil {
-            front: gfx::state::StencilSide {
-                fun: gfx::state::Comparison::Always,
-                mask_read: 255,
-                mask_write: 255,
-                op_fail: gfx::state::StencilOp::Keep,
-                op_depth_fail: gfx::state::StencilOp::DecrementWrap,
-                op_pass: gfx::state::StencilOp::Keep,
-            },
-            back: gfx::state::StencilSide {
-                fun: gfx::state::Comparison::Always,
-                mask_read: 255,
-                mask_write: 255,
-                op_fail: gfx::state::StencilOp::Keep,
-                op_depth_fail: gfx::state::StencilOp::IncrementWrap,
-                op_pass: gfx::state::StencilOp::Keep,
-            },
-        },
-    ),
-});
+// gfx_pipeline!(z_fail_polyhedron_pipeline {
+//     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+//     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+//     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+//         gfx::preset::depth::LESS_EQUAL_TEST,
+//         gfx::state::Stencil {
+//             front: gfx::state::StencilSide {
+//                 fun: gfx::state::Comparison::Always,
+//                 mask_read: 255,
+//                 mask_write: 255,
+//                 op_fail: gfx::state::StencilOp::Keep,
+//                 op_depth_fail: gfx::state::StencilOp::DecrementWrap,
+//                 op_pass: gfx::state::StencilOp::Keep,
+//             },
+//             back: gfx::state::StencilSide {
+//                 fun: gfx::state::Comparison::Always,
+//                 mask_read: 255,
+//                 mask_write: 255,
+//                 op_fail: gfx::state::StencilOp::Keep,
+//                 op_depth_fail: gfx::state::StencilOp::IncrementWrap,
+//                 op_pass: gfx::state::StencilOp::Keep,
+//             },
+//         },
+//     ),
+// });
 
-// Only draw back faces with this!
-gfx_pipeline!(z_fail_bounding_box_pipeline {
-    out_color: gfx::BlendTarget<gfx::format::Srgba8> = (
-        "o_color",
-        gfx::state::ColorMask::all(),
-        gfx::preset::blend::ALPHA,
-    ),
-    color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
-    mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
-    vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-    out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::preset::depth::PASS_TEST,
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::NotEqual,
-            255,
-            (
-                gfx::state::StencilOp::Keep, // never happens, depth test always passed
-                gfx::state::StencilOp::Keep, // if it's not not equal to zero, cool, it's zero!
-                gfx::state::StencilOp::Replace, // if it's not equal to zero, replace it with zero
-            ),
-        ),
-    ),
-});
+// gfx_vertex_struct!(BoundingBoxVertex {
+//     position: [f32; 4] = "a_position",
+// });
 
-fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
-    let draw_size = window.window.draw_size();
+// // Only draw back faces with this!
+// gfx_pipeline!(z_fail_bounding_box_pipeline {
+//     out_color: gfx::BlendTarget<gfx::format::Srgba8> = (
+//         "o_color",
+//         gfx::state::ColorMask::all(),
+//         gfx::preset::blend::ALPHA,
+//     ),
+//     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+//     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
+//     // color: gfx::Global<[f32; 4]> = "u_color",
+//     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+//     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
+//         gfx::preset::depth::PASS_TEST,
+//         gfx::state::Stencil::new(
+//             gfx::state::Comparison::NotEqual,
+//             255,
+//             (
+//                 gfx::state::StencilOp::Keep, // never happens, depth test always passed
+//                 gfx::state::StencilOp::Keep, // if it's not not equal to zero, cool, it's zero!
+//                 gfx::state::StencilOp::Replace, // if it's not equal to zero, replace it with zero
+//             ),
+//         ),
+//     ),
+// });
 
-    CameraPerspective {
-        fov: 45.0,
-        near_clip: 10.0,
-        far_clip: 1000.0,
-        aspect_ratio: (draw_size.width as f32) / (draw_size.height as f32),
-    }.projection()
-}
+// fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
+//     let draw_size = window.window.draw_size();
 
-fn get_elevation(x: f32, y: f32) -> f32 {
-    ((x / 10.0).sin() + (y / 5.0).sin()) * 10.0
-}
+//     CameraPerspective {
+//         fov: 45.0,
+//         near_clip: 10.0,
+//         far_clip: 1000.0,
+//         aspect_ratio: (draw_size.width as f32) / (draw_size.height as f32),
+//     }.projection()
+// }
 
-const TERRAIN_SIDE_LENGTH: u16 = 100;
+// fn get_elevation(x: f32, y: f32) -> f32 {
+//     ((x / 10.0).sin() + (y / 5.0).sin()) * 10.0
+// }
 
-fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<u16>) {
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
+// const TERRAIN_SIDE_LENGTH: u16 = 100;
 
-    for (index, &(x, y)) in polygon.iter().enumerate() {
-        let above = [x, y, 20.1];
-        let below = [x, y, -20.1];
+// fn polygon_to_vertices_and_indices(polygon: &[(f32, f32)]) -> (Vec<Vertex>, Vec<u16>) {
+//     let mut vertices = Vec::new();
+//     let mut indices = Vec::new();
 
-        vertices.push(Vertex {
-            position: above,
-            tex_coords: [0.0, 0.0],
-        });
-        vertices.push(Vertex {
-            position: below,
-            tex_coords: [0.0, 0.0],
-        });
+//     for (index, &(x, y)) in polygon.iter().enumerate() {
+//         let above = [x, y, 20.1];
+//         let below = [x, y, -20.1];
 
-        let a = 2 * index as u16;
-        let b = a + 1;
-        let c = 2 * ((index as u16 + 1) % (polygon.len() as u16));
-        let d = c + 1;
+//         vertices.push(Vertex {
+//             position: above,
+//             tex_coords: [0.0, 0.0],
+//         });
+//         vertices.push(Vertex {
+//             position: below,
+//             tex_coords: [0.0, 0.0],
+//         });
 
-        indices.extend_from_slice(&[a, b, d, d, c, a]);
+//         let a = 2 * index as u16;
+//         let b = a + 1;
+//         let c = 2 * ((index as u16 + 1) % (polygon.len() as u16));
+//         let d = c + 1;
 
-        if index != 0 && index != polygon.len() - 1 {
-            indices.extend_from_slice(&[0, a, c, 1, d, b]);
-        }
-    }
+//         indices.extend_from_slice(&[a, b, d, d, c, a]);
 
-    (vertices, indices)
-}
+//         if index != 0 && index != polygon.len() - 1 {
+//             indices.extend_from_slice(&[0, a, c, 1, d, b]);
+//         }
+//     }
 
-fn main() {
-    let mut window: PistonWindow = WindowSettings::new("Shadow Volume Draping Demo", [800, 600])
-        .exit_on_esc(true)
-        .opengl(OpenGL::V3_2)
-        .build()
-        .unwrap();
+//     (vertices, indices)
+// }
 
-    let mut factory = window.factory.clone();
+// fn main() {
+//     let mut window: PistonWindow = WindowSettings::new("Shadow Volume Draping Demo", [800, 600])
+//         .exit_on_esc(true)
+//         .opengl(OpenGL::V3_2)
+//         .build()
+//         .unwrap();
 
-    let mut terrain_vertices = Vec::new();
-    let mut terrain_indices = Vec::new();
-    let mut terrain_texture_data = Vec::new();
+//     let mut factory = window.factory.clone();
 
-    for y in 0..TERRAIN_SIDE_LENGTH {
-        for x in 0..TERRAIN_SIDE_LENGTH {
-            let max_value = TERRAIN_SIDE_LENGTH - 1;
-            if y != max_value && x != max_value {
-                let a = (x + 0) + (y + 0) * TERRAIN_SIDE_LENGTH;
-                let b = (x + 1) + (y + 0) * TERRAIN_SIDE_LENGTH;
-                let c = (x + 0) + (y + 1) * TERRAIN_SIDE_LENGTH;
-                let d = (x + 1) + (y + 1) * TERRAIN_SIDE_LENGTH;
+//     let mut terrain_vertices = Vec::new();
+//     let mut terrain_indices = Vec::new();
+//     let mut terrain_texture_data = Vec::new();
 
-                terrain_indices.extend_from_slice(&[a, c, b, b, c, d]);
-            }
+//     for y in 0..TERRAIN_SIDE_LENGTH {
+//         for x in 0..TERRAIN_SIDE_LENGTH {
+//             let max_value = TERRAIN_SIDE_LENGTH - 1;
+//             if y != max_value && x != max_value {
+//                 let a = (x + 0) + (y + 0) * TERRAIN_SIDE_LENGTH;
+//                 let b = (x + 1) + (y + 0) * TERRAIN_SIDE_LENGTH;
+//                 let c = (x + 0) + (y + 1) * TERRAIN_SIDE_LENGTH;
+//                 let d = (x + 1) + (y + 1) * TERRAIN_SIDE_LENGTH;
 
-            let (x, y) = (x as f32, y as f32);
-            let (u, v) = (x / max_value as f32, y / max_value as f32);
-            terrain_vertices.push(Vertex {
-                position: [x, -y, get_elevation(x, y)],
-                tex_coords: [u, v],
-            });
+//                 terrain_indices.extend_from_slice(&[a, c, b, b, c, d]);
+//             }
 
-            terrain_texture_data.push([(255.0 * u) as u8, (255.0 * v) as u8, 0, 255]);
-        }
-    }
+//             let (x, y) = (x as f32, y as f32);
+//             let (u, v) = (x / max_value as f32, y / max_value as f32);
+//             terrain_vertices.push(Vertex {
+//                 position: [x, -y, get_elevation(x, y)],
+//                 tex_coords: [u, v],
+//             });
 
-    let (terrain_vertex_buffer, terrain_slice) =
-        factory.create_vertex_buffer_with_slice(&terrain_vertices, terrain_indices.as_slice());
-    let (_, terrain_texture_view) = factory
-        .create_texture_immutable::<gfx::format::Srgba8>(
-            gfx::texture::Kind::D2(
-                TERRAIN_SIDE_LENGTH,
-                TERRAIN_SIDE_LENGTH,
-                gfx::texture::AaMode::Single,
-            ),
-            &[terrain_texture_data.as_slice()],
-        )
-        .unwrap();
+//             terrain_texture_data.push([(255.0 * u) as u8, (255.0 * v) as u8, 0, 255]);
+//         }
+//     }
 
-    let terrain_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-        gfx::texture::FilterMethod::Bilinear,
-        gfx::texture::WrapMode::Clamp,
-    ));
+//     let (terrain_vertex_buffer, terrain_slice) =
+//         factory.create_vertex_buffer_with_slice(&terrain_vertices, terrain_indices.as_slice());
+//     let (_, terrain_texture_view) = factory
+//         .create_texture_immutable::<gfx::format::Srgba8>(
+//             gfx::texture::Kind::D2(
+//                 TERRAIN_SIDE_LENGTH,
+//                 TERRAIN_SIDE_LENGTH,
+//                 gfx::texture::AaMode::Single,
+//             ),
+//             &[terrain_texture_data.as_slice()],
+//         )
+//         .unwrap();
 
-    let terrain_shader_set = factory
-        .create_shader_set(
-            include_bytes!("shaders/terrain.vert"),
-            include_bytes!("shaders/terrain.frag"),
-        )
-        .unwrap();
+//     let terrain_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+//         gfx::texture::FilterMethod::Bilinear,
+//         gfx::texture::WrapMode::Clamp,
+//     ));
 
-    let terrain_pso = factory
-        .create_pipeline_state(
-            &terrain_shader_set,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill().with_cull_back(),
-            terrain_pipeline::new(),
-        )
-        .unwrap();
+//     let terrain_shader_set = factory
+//         .create_shader_set(
+//             include_bytes!("shaders/terrain.vert"),
+//             include_bytes!("shaders/terrain.frag"),
+//         )
+//         .unwrap();
 
-    let terrain_data = terrain_pipeline::Data {
-        color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
-        mvp: [[0.0; 4]; 4],
-        out_color: window.output_color.clone(),
-        out_depth_stencil: (window.output_stencil.clone(), (255, 255)),
-        vertex_buffer: terrain_vertex_buffer,
-    };
+//     let terrain_pso = factory
+//         .create_pipeline_state(
+//             &terrain_shader_set,
+//             gfx::Primitive::TriangleList,
+//             gfx::state::Rasterizer::new_fill().with_cull_back(),
+//             terrain_pipeline::new(),
+//         )
+//         .unwrap();
 
-    let mut terrain_bundle = gfx::Bundle {
-        slice: terrain_slice,
-        pso: terrain_pso,
-        data: terrain_data,
-    };
+//     let terrain_data = terrain_pipeline::Data {
+//         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
+//         mvp: [[0.0; 4]; 4],
+//         out_color: window.output_color.clone(),
+//         out_depth_stencil: (window.output_stencil.clone(), (255, 255)),
+//         vertex_buffer: terrain_vertex_buffer,
+//     };
 
-    let polygon_shader_set = factory
-        .create_shader_set(
-            include_bytes!("shaders/vector.vert"),
-            include_bytes!("shaders/vector.frag"),
-        )
-        .unwrap();
-    let polygon_pso = factory
-        .create_pipeline_state(
-            &polygon_shader_set,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
-            z_fail_polyhedron_pipeline::new(),
-        )
-        .unwrap();
-    let polygon = vec![
-        (40.0, -60.0),
-        (60.0, -60.0),
-        (60.0, -40.0),
-        (40.0, -40.0),
-        (40.0, -60.0),
+//     let mut terrain_bundle = gfx::Bundle {
+//         slice: terrain_slice,
+//         pso: terrain_pso,
+//         data: terrain_data,
+//     };
 
-        (45.0, -55.0),
-        (45.0, -45.0),
-        (55.0, -45.0),
-        (55.0, -55.0),
-        (45.0, -55.0),
-    ];
-    let (polygon_vertices, polygon_indices) = polygon_to_vertices_and_indices(&polygon);
-    let (polygon_vertex_buffer, polygon_slice) =
-        factory.create_vertex_buffer_with_slice(&polygon_vertices, &polygon_indices[..]);
-    let polygon_data = z_fail_polyhedron_pipeline::Data {
-        mvp: [[0.0; 4]; 4],
-        out_depth_stencil: (window.output_stencil.clone(), (0, 0)),
-        vertex_buffer: polygon_vertex_buffer,
-    };
-    let mut polygon_bundle = gfx::Bundle {
-        slice: polygon_slice,
-        pso: polygon_pso,
-        data: polygon_data,
-    };
+//     let polygon_shader_set = factory
+//         .create_shader_set(
+//             include_bytes!("shaders/vector.vert"),
+//             include_bytes!("shaders/vector.frag"),
+//         )
+//         .unwrap();
+//     let polygon_pso = factory
+//         .create_pipeline_state(
+//             &polygon_shader_set,
+//             gfx::Primitive::TriangleList,
+//             gfx::state::Rasterizer::new_fill(),
+//             z_fail_polyhedron_pipeline::new(),
+//         )
+//         .unwrap();
+//     let polygon = vec![
+//         (40.0, -60.0),
+//         (60.0, -60.0),
+//         (60.0, -40.0),
+//         (40.0, -40.0),
+//         (40.0, -60.0),
 
-    let mut bbox_rasterizer = gfx::state::Rasterizer::new_fill();
-    bbox_rasterizer.cull_face = gfx::state::CullFace::Front;
-    let bbox_pso = factory
-        .create_pipeline_state(
-            &terrain_shader_set,
-            gfx::Primitive::TriangleList,
-            bbox_rasterizer,
-            z_fail_bounding_box_pipeline::new(),
-        )
-        .unwrap();
+//         (49.0, -55.0),
+//         (49.0, -45.0),
+//         (59.0, -45.0),
+//         (59.0, -55.0),
+//         (49.0, -55.0),
+//     ];
 
-    let bbox_texture_data = vec![[0, 0, 255, 100]];
-    let (_, bbox_texture_view) = factory
-        .create_texture_immutable::<gfx::format::Srgba8>(
-            gfx::texture::Kind::D2(1, 1, gfx::texture::AaMode::Single),
-            &[bbox_texture_data.as_slice()],
-        )
-        .unwrap();
+//     DrapeablePolygon::new_from_points(&mut factory, &polygon, -20.0, 20.0);
 
-    let bbox_points = vec![
-        (0.0, -(TERRAIN_SIDE_LENGTH as f32)),
-        (TERRAIN_SIDE_LENGTH as f32, -(TERRAIN_SIDE_LENGTH as f32)),
-        (TERRAIN_SIDE_LENGTH as f32, -0.0),
-        (0.0, -0.0),
-        (0.0, -(TERRAIN_SIDE_LENGTH as f32)),
-    ];
-    let (bbox_vertices, bbox_indices) = polygon_to_vertices_and_indices(&bbox_points);
-    let (bbox_vertex_buffer, bbox_slice) =
-        factory.create_vertex_buffer_with_slice(&bbox_vertices, &bbox_indices[..]);
-    let bbox_data = z_fail_bounding_box_pipeline::Data {
-        mvp: [[0.0; 4]; 4],
-        out_color: window.output_color.clone(),
-        out_depth_stencil: (window.output_stencil.clone(), (0, 0)),
-        vertex_buffer: bbox_vertex_buffer,
-        color_texture: (bbox_texture_view.clone(), terrain_sampler.clone()),
-    };
-    let mut bbox_bundle = gfx::Bundle {
-        slice: bbox_slice,
-        pso: bbox_pso,
-        data: bbox_data,
-    };
+//     let (polygon_vertices, polygon_indices) = polygon_to_vertices_and_indices(&polygon);
+//     let (polygon_vertex_buffer, polygon_slice) =
+//         factory.create_vertex_buffer_with_slice(&polygon_vertices, &polygon_indices[..]);
+//     let polygon_data = z_fail_polyhedron_pipeline::Data {
+//         mvp: [[0.0; 4]; 4],
+//         out_depth_stencil: (window.output_stencil.clone(), (0, 0)),
+//         vertex_buffer: polygon_vertex_buffer,
+//     };
+//     let mut polygon_bundle = gfx::Bundle {
+//         slice: polygon_slice,
+//         pso: polygon_pso,
+//         data: polygon_data,
+//     };
 
-    let mut camera_controller =
-        OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
+//     let mut bbox_rasterizer = gfx::state::Rasterizer::new_fill();
+//     bbox_rasterizer.cull_face = gfx::state::CullFace::Front;
 
-    while let Some(event) = window.next() {
-        camera_controller.event(&event);
+//     let bbox_shader_set = factory
+//         .create_shader_set(
+//             include_bytes!("shaders/terrain.vert"),
+//             include_bytes!("shaders/terrain.frag"),
+//         )
+//         .unwrap();
 
-        event.resize(|_, _| {
-            terrain_bundle.data.out_color = window.output_color.clone();
-            terrain_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+//     let bbox_pso = factory
+//         .create_pipeline_state(
+//             &bbox_shader_set,
+//             gfx::Primitive::TriangleList,
+//             bbox_rasterizer,
+//             z_fail_bounding_box_pipeline::new(),
+//         )
+//         .unwrap();
 
-            polygon_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+//     let bbox_texture_data = vec![[0, 0, 255, 100]];
+//     let (_, bbox_texture_view) = factory
+//         .create_texture_immutable::<gfx::format::Srgba8>(
+//             gfx::texture::Kind::D2(1, 1, gfx::texture::AaMode::Single),
+//             &[bbox_texture_data.as_slice()],
+//         )
+//         .unwrap();
 
-            bbox_bundle.data.out_color = window.output_color.clone();
-            bbox_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
-        });
+//     let bbox_points = vec![
+//         (0.0, -(TERRAIN_SIDE_LENGTH as f32)),
+//         (TERRAIN_SIDE_LENGTH as f32, -(TERRAIN_SIDE_LENGTH as f32)),
+//         (TERRAIN_SIDE_LENGTH as f32, -0.0),
+//         (0.0, -0.0),
+//         (0.0, -(TERRAIN_SIDE_LENGTH as f32)),
+//     ];
+//     let (bbox_vertices, bbox_indices) = polygon_to_vertices_and_indices(&bbox_points);
+//     let (bbox_vertex_buffer, bbox_slice) =
+//         factory.create_vertex_buffer_with_slice(&bbox_vertices, &bbox_indices[..]);
+//     let bbox_data = z_fail_bounding_box_pipeline::Data {
+//         mvp: [[0.0; 4]; 4],
+//         out_color: window.output_color.clone(),
+//         out_depth_stencil: (window.output_stencil.clone(), (0, 0)),
+//         vertex_buffer: bbox_vertex_buffer,
+//         color_texture: (bbox_texture_view.clone(), terrain_sampler.clone()),
+//     };
+//     let mut bbox_bundle = gfx::Bundle {
+//         slice: bbox_slice,
+//         pso: bbox_pso,
+//         data: bbox_data,
+//     };
 
-        window.draw_3d(&event, |window| {
-            let render_args = event.render_args().unwrap();
+//     let mut camera_controller =
+//         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
 
-            window.encoder.clear(
-                &window.output_color,
-                [0.3, 0.3, 0.3, 1.0],
-            );
-            window.encoder.clear_depth(&window.output_stencil, 1.0);
-            window.encoder.clear_stencil(&window.output_stencil, 0);
-            let mvp = camera_controllers::model_view_projection(
-                vecmath::mat4_id(),
-                camera_controller.camera(render_args.ext_dt).orthogonal(),
-                get_projection(window),
-            );
+//     while let Some(event) = window.next() {
+//         camera_controller.event(&event);
 
-            terrain_bundle.data.mvp = mvp;
-            terrain_bundle.encode(&mut window.encoder);
+//         event.resize(|_, _| {
+//             terrain_bundle.data.out_color = window.output_color.clone();
+//             terrain_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
 
-            polygon_bundle.data.mvp = mvp;
-            polygon_bundle.encode(&mut window.encoder);
+//             polygon_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
 
-            bbox_bundle.data.mvp = mvp;
-            bbox_bundle.encode(&mut window.encoder);
-        });
-    }
-}
+//             bbox_bundle.data.out_color = window.output_color.clone();
+//             bbox_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+//         });
+
+//         window.draw_3d(&event, |window| {
+//             let render_args = event.render_args().unwrap();
+
+//             window.encoder.clear(
+//                 &window.output_color,
+//                 [0.3, 0.3, 0.3, 1.0],
+//             );
+//             window.encoder.clear_depth(&window.output_stencil, 1.0);
+//             window.encoder.clear_stencil(&window.output_stencil, 0);
+//             let mvp = camera_controllers::model_view_projection(
+//                 vecmath::mat4_id(),
+//                 camera_controller.camera(render_args.ext_dt).orthogonal(),
+//                 get_projection(window),
+//             );
+
+//             terrain_bundle.data.mvp = mvp;
+//             terrain_bundle.encode(&mut window.encoder);
+
+//             polygon_bundle.data.mvp = mvp;
+//             polygon_bundle.encode(&mut window.encoder);
+
+//             bbox_bundle.data.mvp = mvp;
+//             bbox_bundle.encode(&mut window.encoder);
+//         });
+//     }
+// }

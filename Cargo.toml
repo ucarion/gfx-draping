@@ -1,10 +1,12 @@
 [package]
-name = "gfx-draping"
+name = "gfx_draping"
 version = "0.1.0"
 authors = ["Ulysse Carion <ulysse@ulysse.io>"]
 
 [dependencies]
-camera_controllers = "0.22"
 gfx = "0.16"
+
+[dev-dependencies]
+camera_controllers = "0.22"
 piston_window = "0.70"
 vecmath = "0.3"
