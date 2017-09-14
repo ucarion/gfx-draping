@@ -8,6 +8,14 @@ terrain it's drawn on.
 This library is a Rust implementation the algorithm described by [Schneider &
 Klein (2007)][sch2007].
 
+For an example of what this crate can do, run the example:
+
+```bash
+# You'll want to zoom out to see anything. Do that by holding down CTRL and
+# dragging down with your mouse. Then pan around with shift+drag.
+cargo run --example demo
+```
+
 ## Can I use this library?
 
 You can, as long the following things are true:
