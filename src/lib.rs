@@ -269,9 +269,9 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
                 if index != 0 && index != points.len() - 1 {
                     // The top faces should face upward; the bottom faces, downward.
                     let cap_triangles = vec![
-                    0, above_index, after_above_index,
-                    1, after_below_index, below_index,
-                ];
+                        0, above_index, after_above_index,
+                        1, after_below_index, below_index,
+                    ];
 
                     indices.extend(cap_triangles);
                 }
