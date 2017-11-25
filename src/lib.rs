@@ -11,6 +11,11 @@ gfx_vertex_struct!(Vertex {
 gfx_pipeline!(z_fail_polyhedron_pipeline {
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
+    out_color: gfx::BlendTarget<gfx::format::Srgba8> = (
+        "o_color",
+        gfx::state::ColorMask::all(),
+        gfx::preset::blend::ALPHA,
+    ),
     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
         gfx::preset::depth::LESS_EQUAL_TEST,
         gfx::state::Stencil {
@@ -103,6 +108,7 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
             slice: polygon.polyhedron_slice.clone(),
             data: z_fail_polyhedron_pipeline::Data {
                 mvp: mvp,
+                out_color: render_target.clone(),
                 out_depth_stencil: (depth_stencil_target.clone(), (0, 0)),
                 vertex_buffer: polygon.polyhedron_vertex_buffer.clone(),
             },

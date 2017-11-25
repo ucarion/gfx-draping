@@ -238,7 +238,9 @@ fn main() {
 
             let fps_message = format!("Frames per second: {}", fps_counter.tick());
             text_renderer.add(&fps_message, [10, 10], [0.0, 0.0, 0.0, 1.0]);
-            text_renderer.draw(&mut window.encoder, &window.output_color).unwrap();
+            text_renderer
+                .draw(&mut window.encoder, &window.output_color)
+                .unwrap();
         });
 
         event.resize(|_, _| {

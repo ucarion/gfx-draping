@@ -18,22 +18,11 @@ gfx_vertex_struct!(Vertex {
 });
 
 gfx_pipeline!(terrain_pipeline {
-    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+    out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
+    out_depth: gfx::DepthTarget<::gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
-    out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
-        gfx::preset::depth::LESS_EQUAL_WRITE,
-        gfx::state::Stencil::new(
-            gfx::state::Comparison::Always,
-            255,
-            (
-                gfx::state::StencilOp::Keep, // never happens if Comparison::Always
-                gfx::state::StencilOp::Keep, // when depth test fails
-                gfx::state::StencilOp::Keep, // when depth test passes
-            ),
-        ),
-    ),
 });
 
 fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
@@ -127,7 +116,7 @@ fn main() {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
         out_color: window.output_color.clone(),
-        out_depth_stencil: (window.output_stencil.clone(), (255, 255)),
+        out_depth: window.output_stencil.clone(),
         vertex_buffer: terrain_vertex_buffer,
     };
 
@@ -220,7 +209,7 @@ fn main() {
 
         event.resize(|_, _| {
             terrain_bundle.data.out_color = window.output_color.clone();
-            terrain_bundle.data.out_depth_stencil.0 = window.output_stencil.clone();
+            terrain_bundle.data.out_depth = window.output_stencil.clone();
         });
     }
 }
