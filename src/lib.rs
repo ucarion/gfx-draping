@@ -268,9 +268,9 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
     fn prism_indices(num_points: u32) -> Vec<u32> {
         (0..num_points)
             .flat_map(|index| {
-                let below_index = 2 * index as u32;
+                let below_index = 2 * index;
                 let above_index = below_index + 1;
-                let after_below_index = 2 * ((1 + index) % num_points) as u32;
+                let after_below_index = 2 * ((1 + index) % num_points);
                 let after_above_index = after_below_index + 1;
 
                 // When on an exterior ring, whose points are in counter-clockwise orientation,
