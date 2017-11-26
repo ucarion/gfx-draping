@@ -248,29 +248,29 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
             .iter()
             .enumerate()
             .map(|(index, &(x, y))| {
-                let above = Vertex { position: [x, y, height_upper_bound] };
                 let below = Vertex { position: [x, y, height_lower_bound] };
-                let vertices = vec![above, below];
+                let above = Vertex { position: [x, y, height_upper_bound] };
+                let vertices = vec![below, above];
 
-                let above_index = 2 * index as u32;
-                let below_index = above_index + 1;
-                let after_above_index = 2 * ((1 + index) % points.len()) as u32;
-                let after_below_index = after_above_index + 1;
+                let below_index = 2 * index as u32;
+                let above_index = below_index + 1;
+                let after_below_index = 2 * ((1 + index) % points.len()) as u32;
+                let after_above_index = after_below_index + 1;
 
                 // When on an exterior ring, whose points are in counter-clockwise orientation,
                 // this face should face outward.
                 //
                 // For interior rings, with clockwise orientation, this face should face inward.
                 let mut indices = vec![
-                    above_index, below_index, after_below_index,
+                    below_index, after_below_index, above_index,
                     after_below_index, after_above_index, above_index,
                 ];
 
                 if index != 0 && index != points.len() - 1 {
                     // The top faces should face upward; the bottom faces, downward.
                     let cap_triangles = vec![
-                        0, above_index, after_above_index,
-                        1, after_below_index, below_index,
+                        0, after_below_index, below_index,
+                        1, above_index, after_above_index,
                     ];
 
                     indices.extend(cap_triangles);
