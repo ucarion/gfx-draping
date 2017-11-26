@@ -174,16 +174,41 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
 }
 
 pub struct Polygon {
+    bounds: [(f32, f32); 3],
     points: Vec<(f32, f32)>,
 }
 
 impl Polygon {
+    fn bounding_box_vertices(&self) -> Vec<Vertex> {
+        let bounding_ring = &[
+            (self.bounds[0].0, self.bounds[1].0),
+            (self.bounds[0].1, self.bounds[1].0),
+            (self.bounds[0].1, self.bounds[1].1),
+            (self.bounds[0].0, self.bounds[1].1),
+            (self.bounds[0].0, self.bounds[1].0),
+        ];
+
+        Self::prism_vertices(bounding_ring, self.bounds[2].0, self.bounds[2].1)
+    }
+
+    fn bounding_box_indices(&self) -> Vec<u32> {
+        Self::prism_indices(5)
+    }
+
+    fn polyhedron_vertices(&self) -> Vec<Vertex> {
+        Self::prism_vertices(&self.points, self.bounds[2].0, self.bounds[2].1)
+    }
+
+    fn polyhedron_indices(&self) -> Vec<u32> {
+        Self::prism_indices(self.points.len() as u32)
+    }
+
     fn prism_vertices(
-        &self,
+        points: &[(f32, f32)],
         height_lower_bound: f32,
         height_upper_bound: f32,
     ) -> Vec<Vertex> {
-        self.points
+        points
             .iter()
             .flat_map(|&(x, y)| {
                 let below = Vertex { position: [x, y, height_lower_bound] };
@@ -193,9 +218,7 @@ impl Polygon {
             .collect()
     }
 
-    fn prism_indices(&self) -> Vec<u32> {
-        let num_points = self.points.len() as u32;
-
+    fn prism_indices(num_points: u32) -> Vec<u32> {
         (0..num_points)
             .flat_map(|index| {
                 let below_index = 2 * index;
@@ -255,30 +278,16 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
         points: &[(f32, f32)],
         bounds: &[(f32, f32); 3],
     ) -> DrapeablePolygon<R> {
-        let (height_lower_bound, height_upper_bound) = bounds[2];
-        let (polyhedron_vertex_buffer, polyhedron_slice) =
-            Self::points_to_vertex_buffer_and_slice(
-                factory,
-                height_lower_bound,
-                height_upper_bound,
-                points,
-            );
+        let polygon = Polygon {
+            bounds: bounds.to_owned(),
+            points: points.to_owned(),
+        };
 
-        let bouding_ring = &[
-            (bounds[0].0, bounds[1].0),
-            (bounds[0].1, bounds[1].0),
-            (bounds[0].1, bounds[1].1),
-            (bounds[0].0, bounds[1].1),
-            (bounds[0].0, bounds[1].0),
-        ];
+        let (polyhedron_vertex_buffer, polyhedron_slice) =
+            factory.create_vertex_buffer_with_slice(&polygon.polyhedron_vertices(), &polygon.polyhedron_indices()[..]);
 
         let (bounding_box_vertex_buffer, bounding_box_slice) =
-            Self::points_to_vertex_buffer_and_slice(
-                factory,
-                height_lower_bound,
-                height_upper_bound,
-                bouding_ring,
-            );
+            factory.create_vertex_buffer_with_slice(&polygon.bounding_box_vertices(), &polygon.bounding_box_indices()[..]);
 
         DrapeablePolygon {
             polyhedron_vertex_buffer: polyhedron_vertex_buffer,
@@ -287,21 +296,4 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
             bounding_box_slice: bounding_box_slice,
         }
     }
-
-    fn points_to_vertex_buffer_and_slice<F: gfx::Factory<R>>(
-        factory: &mut F,
-        height_lower_bound: f32,
-        height_upper_bound: f32,
-        points: &[(f32, f32)],
-    ) -> (gfx::handle::Buffer<R, Vertex>, gfx::Slice<R>) {
-        let polygon = Polygon {
-            points: points.to_owned(),
-        };
-
-        let vertices = polygon.prism_vertices(height_lower_bound, height_upper_bound);
-        let indices = polygon.prism_indices();
-
-        factory.create_vertex_buffer_with_slice(&vertices, &indices[..])
-    }
-
 }
