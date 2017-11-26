@@ -244,17 +244,33 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
         height_upper_bound: f32,
         points: &[(f32, f32)],
     ) -> (gfx::handle::Buffer<R, Vertex>, gfx::Slice<R>) {
-        let (vertices, indices) = points
+        let vertices = Self::prism_vertices(height_lower_bound, height_upper_bound, points);
+        let indices = Self::prism_indices(points.len() as u32);
+
+        factory.create_vertex_buffer_with_slice(&vertices, &indices[..])
+    }
+
+    fn prism_vertices(
+        height_lower_bound: f32,
+        height_upper_bound: f32,
+        points: &[(f32, f32)],
+    ) -> Vec<Vertex> {
+        points
             .iter()
-            .enumerate()
-            .map(|(index, &(x, y))| {
+            .flat_map(|&(x, y)| {
                 let below = Vertex { position: [x, y, height_lower_bound] };
                 let above = Vertex { position: [x, y, height_upper_bound] };
-                let vertices = vec![below, above];
+                vec![below, above]
+            })
+            .collect()
+    }
 
+    fn prism_indices(num_points: u32) -> Vec<u32> {
+        (0..num_points)
+            .flat_map(|index| {
                 let below_index = 2 * index as u32;
                 let above_index = below_index + 1;
-                let after_below_index = 2 * ((1 + index) % points.len()) as u32;
+                let after_below_index = 2 * ((1 + index) % num_points) as u32;
                 let after_above_index = after_below_index + 1;
 
                 // When on an exterior ring, whose points are in counter-clockwise orientation,
@@ -266,7 +282,7 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
                     after_below_index, after_above_index, above_index,
                 ];
 
-                if index != 0 && index != points.len() - 1 {
+                if index != 0 && index != num_points - 1 {
                     // The top faces should face upward; the bottom faces, downward.
                     let cap_triangles = vec![
                         0, after_below_index, below_index,
@@ -276,15 +292,8 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
                     indices.extend(cap_triangles);
                 }
 
-                (vertices, indices)
+                indices
             })
-            .fold((vec![], vec![]), |(mut acc_vs, mut acc_is), (vs, is)| {
-                acc_vs.extend_from_slice(&vs);
-                acc_is.extend_from_slice(&is);
-
-                (acc_vs, acc_is)
-            });
-
-        factory.create_vertex_buffer_with_slice(&vertices, &indices[..])
+            .collect()
     }
 }
