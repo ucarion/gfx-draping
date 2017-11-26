@@ -173,6 +173,61 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
     }
 }
 
+pub struct Polygon {
+    points: Vec<(f32, f32)>,
+}
+
+impl Polygon {
+    fn prism_vertices(
+        &self,
+        height_lower_bound: f32,
+        height_upper_bound: f32,
+    ) -> Vec<Vertex> {
+        self.points
+            .iter()
+            .flat_map(|&(x, y)| {
+                let below = Vertex { position: [x, y, height_lower_bound] };
+                let above = Vertex { position: [x, y, height_upper_bound] };
+                vec![below, above]
+            })
+            .collect()
+    }
+
+    fn prism_indices(&self) -> Vec<u32> {
+        let num_points = self.points.len() as u32;
+
+        (0..num_points)
+            .flat_map(|index| {
+                let below_index = 2 * index;
+                let above_index = below_index + 1;
+                let after_below_index = 2 * ((1 + index) % num_points);
+                let after_above_index = after_below_index + 1;
+
+                // When on an exterior ring, whose points are in counter-clockwise orientation,
+                // this face should face outward.
+                //
+                // For interior rings, with clockwise orientation, this face should face inward.
+                let mut indices = vec![
+                    below_index, after_below_index, above_index,
+                    after_below_index, after_above_index, above_index,
+                ];
+
+                if index != 0 && index != num_points - 1 {
+                    // The top faces should face upward; the bottom faces, downward.
+                    let cap_triangles = vec![
+                        0, after_below_index, below_index,
+                        1, above_index, after_above_index,
+                    ];
+
+                    indices.extend(cap_triangles);
+                }
+
+                indices
+            })
+            .collect()
+    }
+}
+
 #[derive(Debug)]
 pub struct DrapeablePolygon<R: gfx::Resources> {
     polyhedron_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
@@ -239,56 +294,14 @@ impl<R: gfx::Resources> DrapeablePolygon<R> {
         height_upper_bound: f32,
         points: &[(f32, f32)],
     ) -> (gfx::handle::Buffer<R, Vertex>, gfx::Slice<R>) {
-        let vertices = Self::prism_vertices(height_lower_bound, height_upper_bound, points);
-        let indices = Self::prism_indices(points.len() as u32);
+        let polygon = Polygon {
+            points: points.to_owned(),
+        };
+
+        let vertices = polygon.prism_vertices(height_lower_bound, height_upper_bound);
+        let indices = polygon.prism_indices();
 
         factory.create_vertex_buffer_with_slice(&vertices, &indices[..])
     }
 
-    fn prism_vertices(
-        height_lower_bound: f32,
-        height_upper_bound: f32,
-        points: &[(f32, f32)],
-    ) -> Vec<Vertex> {
-        points
-            .iter()
-            .flat_map(|&(x, y)| {
-                let below = Vertex { position: [x, y, height_lower_bound] };
-                let above = Vertex { position: [x, y, height_upper_bound] };
-                vec![below, above]
-            })
-            .collect()
-    }
-
-    fn prism_indices(num_points: u32) -> Vec<u32> {
-        (0..num_points)
-            .flat_map(|index| {
-                let below_index = 2 * index;
-                let above_index = below_index + 1;
-                let after_below_index = 2 * ((1 + index) % num_points);
-                let after_above_index = after_below_index + 1;
-
-                // When on an exterior ring, whose points are in counter-clockwise orientation,
-                // this face should face outward.
-                //
-                // For interior rings, with clockwise orientation, this face should face inward.
-                let mut indices = vec![
-                    below_index, after_below_index, above_index,
-                    after_below_index, after_above_index, above_index,
-                ];
-
-                if index != 0 && index != num_points - 1 {
-                    // The top faces should face upward; the bottom faces, downward.
-                    let cap_triangles = vec![
-                        0, after_below_index, below_index,
-                        1, above_index, after_above_index,
-                    ];
-
-                    indices.extend(cap_triangles);
-                }
-
-                indices
-            })
-            .collect()
-    }
 }
