@@ -31,12 +31,10 @@ impl PolygonBuffer {
         PolygonBufferIndices {
             polyhedron_indices: polygon
                 .polyhedron_indices()
-                .iter()
                 .map(|i| i + polyhedron_offset)
                 .collect(),
             bounding_box_indices: polygon
                 .bounding_box_indices()
-                .iter()
                 .map(|i| i + bounding_box_offset)
                 .collect(),
         }
@@ -66,87 +64,96 @@ impl PolygonBufferIndices {
 }
 
 pub struct Polygon {
-    pub bounds: [(f32, f32); 3],
-    pub points: Vec<(f32, f32)>,
+    bounds: [(f32, f32); 3],
+    bounding_ring: [(f32, f32); 5],
+    points: Vec<(f32, f32)>,
 }
 
 impl Polygon {
-    fn bounding_box_vertices(&self) -> Vec<Vertex> {
-        let bounding_ring = &[
-            (self.bounds[0].0, self.bounds[1].0),
-            (self.bounds[0].1, self.bounds[1].0),
-            (self.bounds[0].1, self.bounds[1].1),
-            (self.bounds[0].0, self.bounds[1].1),
-            (self.bounds[0].0, self.bounds[1].0),
+    pub fn new(bounds: [(f32, f32); 3], points: Vec<(f32, f32)>) -> Polygon {
+        let bounding_ring = [
+            (bounds[0].0, bounds[1].0),
+            (bounds[0].1, bounds[1].0),
+            (bounds[0].1, bounds[1].1),
+            (bounds[0].0, bounds[1].1),
+            (bounds[0].0, bounds[1].0),
         ];
 
-        Self::prism_vertices(bounding_ring, self.bounds[2].0, self.bounds[2].1)
+        Polygon {
+            bounds: bounds,
+            bounding_ring: bounding_ring,
+            points: points,
+        }
     }
 
-    fn bounding_box_indices(&self) -> Vec<u32> {
+    fn bounding_box_vertices<'a>(&'a self) -> Box<'a + Iterator<Item = Vertex>> {
+
+        Box::new(Self::prism_vertices(
+            &self.bounding_ring,
+            self.bounds[2].0,
+            self.bounds[2].1,
+        ))
+    }
+
+    fn bounding_box_indices(&self) -> Box<Iterator<Item = u32>> {
         Self::prism_indices(5)
     }
 
-    fn polyhedron_vertices(&self) -> Vec<Vertex> {
+    fn polyhedron_vertices<'a>(&'a self) -> Box<'a + Iterator<Item = Vertex>> {
         Self::prism_vertices(&self.points, self.bounds[2].0, self.bounds[2].1)
     }
 
-    fn polyhedron_indices(&self) -> Vec<u32> {
+    fn polyhedron_indices(&self) -> Box<Iterator<Item = u32>> {
         Self::prism_indices(self.points.len() as u32)
     }
 
-    fn prism_vertices(
-        points: &[(f32, f32)],
+    fn prism_vertices<'a>(
+        points: &'a [(f32, f32)],
         height_lower_bound: f32,
         height_upper_bound: f32,
-    ) -> Vec<Vertex> {
-        points
-            .iter()
-            .flat_map(|&(x, y)| {
-                let below = Vertex { position: [x, y, height_lower_bound] };
-                let above = Vertex { position: [x, y, height_upper_bound] };
-                vec![below, above]
-            })
-            .collect()
+    ) -> Box<'a + Iterator<Item = Vertex>> {
+        Box::new(points.iter().flat_map(move |&(x, y)| {
+            let below = Vertex { position: [x, y, height_lower_bound] };
+            let above = Vertex { position: [x, y, height_upper_bound] };
+            vec![below, above]
+        }))
     }
 
-    fn prism_indices(num_points: u32) -> Vec<u32> {
-        (0..num_points)
-            .flat_map(|index| {
-                let below_index = 2 * index;
-                let above_index = below_index + 1;
-                let after_below_index = 2 * ((1 + index) % num_points);
-                let after_above_index = after_below_index + 1;
+    fn prism_indices(num_points: u32) -> Box<Iterator<Item = u32>> {
+        Box::new((0..num_points).flat_map(move |index| {
+            let below_index = 2 * index;
+            let above_index = below_index + 1;
+            let after_below_index = 2 * ((1 + index) % num_points);
+            let after_above_index = after_below_index + 1;
 
-                // When on an exterior ring, whose points are in counter-clockwise orientation,
-                // this face should face outward.
-                //
-                // For interior rings, with clockwise orientation, this face should face inward.
-                let mut indices = vec![
+            // When on an exterior ring, whose points are in counter-clockwise orientation,
+            // this face should face outward.
+            //
+            // For interior rings, with clockwise orientation, this face should face inward.
+            let mut indices = vec![
+                below_index,
+                after_below_index,
+                above_index,
+                after_below_index,
+                after_above_index,
+                above_index,
+            ];
+
+            if index != 0 && index != num_points - 1 {
+                // The top faces should face upward; the bottom faces, downward.
+                let cap_triangles = vec![
+                    0,
+                    after_below_index,
                     below_index,
-                    after_below_index,
+                    1,
                     above_index,
-                    after_below_index,
                     after_above_index,
-                    above_index,
                 ];
 
-                if index != 0 && index != num_points - 1 {
-                    // The top faces should face upward; the bottom faces, downward.
-                    let cap_triangles = vec![
-                        0,
-                        after_below_index,
-                        below_index,
-                        1,
-                        above_index,
-                        after_above_index,
-                    ];
+                indices.extend(cap_triangles);
+            }
 
-                    indices.extend(cap_triangles);
-                }
-
-                indices
-            })
-            .collect()
+            indices
+        }))
     }
 }

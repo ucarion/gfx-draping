@@ -149,10 +149,7 @@ fn main() {
         (41.0, -42.0),
     ];
     let polygon1_bounds = [(40.0, 60.0), (-60.0, -40.0), (-20.0, 20.0)];
-    let polygon1 = Polygon {
-        bounds: polygon1_bounds,
-        points: polygon1_points,
-    };
+    let polygon1 = Polygon::new(polygon1_bounds, polygon1_points);
 
     let polygon2_points = vec![
         (10.0, -20.0),
@@ -161,10 +158,7 @@ fn main() {
         (10.0, -20.0),
     ];
     let polygon2_bounds = [(10.0, 30.0), (-50.0, -20.0), (-20.0, 20.0)];
-    let polygon2 = Polygon {
-        bounds: polygon2_bounds,
-        points: polygon2_points,
-    };
+    let polygon2 = Polygon::new(polygon2_bounds, polygon2_points);
 
     let renderer = DrapingRenderer::new(&mut factory);
     let mut buffer = PolygonBuffer::new();
