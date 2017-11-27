@@ -98,7 +98,7 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         depth_stencil_target: gfx::handle::DepthStencilView<R, gfx::format::DepthStencil>,
         mvp: [[f32; 4]; 4],
         color: [f32; 4],
-        buffer: &PolygonBuffer,
+        buffer: &PolygonGroup,
         indices: &PolygonBufferIndices,
     ) {
         let polyhedron_slice = indices.polyhedron_slice(factory);
@@ -179,44 +179,5 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
                 z_fail_bounding_box_pipeline::new(),
             )
             .unwrap()
-    }
-}
-
-#[derive(Debug)]
-pub struct DrapeablePolygon {
-    buffer: PolygonBuffer,
-    indices: PolygonBufferIndices,
-}
-
-impl DrapeablePolygon {
-    /// Prepare vertex and index buffers needed for rendering a individual draped polygon.
-    ///
-    /// `points` should be the concatenation of the rings in a polygon. The first ring should be
-    /// the exterior ring, and then the interior rings should follow.
-    ///
-    /// A "ring" is a sequence of points, where the first and last point are the same. The exterior
-    /// ring should be *positively oriented* -- that is, it should go in counter-clockwise order.
-    /// The interior rings should be *negatively oriented*.
-    ///
-    /// `bounds` should be the `(min, max)` values along each dimension the area enclosed by the
-    /// polygon; they define an axis-aligned bounding rectangular prism for the polygon.
-    /// `points[0]` should have the min-max values along the x-axis, `points[1]` should have
-    /// min-max y-values, and `points[2]` should have min-max z-values/elevations.
-    pub fn new_from_points<F: gfx::Factory<R>, R: gfx::Resources>(
-        factory: &mut F,
-        points: &[(f32, f32)],
-        bounds: &[(f32, f32); 3],
-    ) -> DrapeablePolygon {
-        let polygon = Polygon {
-            bounds: bounds.to_owned(),
-            points: points.to_owned(),
-        };
-        let mut buffer = PolygonBuffer::new();
-        let indices = buffer.add(&polygon);
-
-        DrapeablePolygon {
-            buffer: buffer,
-            indices: indices,
-        }
     }
 }

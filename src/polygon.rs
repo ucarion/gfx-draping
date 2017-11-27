@@ -4,14 +4,14 @@ use gfx::traits::FactoryExt;
 use Vertex;
 
 #[derive(Debug)]
-pub struct PolygonBuffer {
+pub struct PolygonGroup {
     polyhedron_vertices: Vec<Vertex>,
     bounding_box_vertices: Vec<Vertex>,
 }
 
-impl PolygonBuffer {
-    pub fn new() -> PolygonBuffer {
-        PolygonBuffer {
+impl PolygonGroup {
+    pub fn new() -> PolygonGroup {
+        PolygonGroup {
             polyhedron_vertices: Vec::new(),
             bounding_box_vertices: Vec::new(),
         }
