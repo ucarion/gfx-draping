@@ -98,35 +98,35 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         depth_stencil_target: gfx::handle::DepthStencilView<R, gfx::format::DepthStencil>,
         mvp: [[f32; 4]; 4],
         color: [f32; 4],
-        buffer: &PolygonGroup,
-        indices: &PolygonBufferIndices,
+        buffer: &RenderablePolygonBuffer<R>,
+        indices: &RenderablePolygonIndices<R>,
     ) {
-        let polyhedron_slice = indices.polyhedron_slice(factory);
-        let polyhedron_vertex_buffer = buffer.polyhedron_vertex_buffer(factory);
+        // let polyhedron_slice = indices.polyhedron_slice
+        // let polyhedron_vertex_buffer = buffer.polyhedron_vertex_buffer(factory);
 
-        let bounding_box_slice = indices.bounding_box_slice(factory);
-        let bounding_box_vertex_buffer = buffer.bounding_box_vertex_buffer(factory);
+        // let bounding_box_slice = indices.bounding_box_slice(factory);
+        // let bounding_box_vertex_buffer = buffer.bounding_box_vertex_buffer(factory);
 
         let polyhedron_bundle = gfx::Bundle {
             pso: self.polyhedron_pso.clone(),
-            slice: polyhedron_slice,
+            slice: indices.polyhedron_slice.clone(),
             data: z_fail_polyhedron_pipeline::Data {
                 mvp: mvp,
                 out_color: render_target.clone(),
                 out_depth_stencil: (depth_stencil_target.clone(), (0, 0)),
-                vertex_buffer: polyhedron_vertex_buffer,
+                vertex_buffer: buffer.polyhedron_vertex_buffer.clone(),
             },
         };
 
         let bounding_box_bundle = gfx::Bundle {
             pso: self.bounding_box_pso.clone(),
-            slice: bounding_box_slice,
+            slice: indices.bounding_box_slice.clone(),
             data: z_fail_bounding_box_pipeline::Data {
                 color: color,
                 mvp: mvp,
                 out_color: render_target.clone(),
                 out_depth_stencil: (depth_stencil_target.clone(), (0, 0)),
-                vertex_buffer: bounding_box_vertex_buffer,
+                vertex_buffer: buffer.bounding_box_vertex_buffer.clone(),
             },
         };
 
@@ -179,5 +179,43 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
                 z_fail_bounding_box_pipeline::new(),
             )
             .unwrap()
+    }
+}
+
+pub struct RenderablePolygonBuffer<R: gfx::Resources> {
+    polyhedron_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
+    bounding_box_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
+}
+
+impl<R: gfx::Resources> RenderablePolygonBuffer<R> {
+    pub fn new<F: gfx::Factory<R>>(factory: &mut F, buffer: &PolygonBuffer) -> RenderablePolygonBuffer<R> {
+        RenderablePolygonBuffer {
+            polyhedron_vertex_buffer: factory.create_vertex_buffer(&buffer.polyhedron_vertices),
+            bounding_box_vertex_buffer: factory.create_vertex_buffer(&buffer.bounding_box_vertices),
+        }
+    }
+}
+
+pub struct RenderablePolygonIndices<R: gfx::Resources> {
+    polyhedron_slice: gfx::Slice<R>,
+    bounding_box_slice: gfx::Slice<R>,
+}
+
+impl<R: gfx::Resources> RenderablePolygonIndices<R> {
+    pub fn new<F: gfx::Factory<R>>(factory: &mut F, indices: &PolygonBufferIndices) -> RenderablePolygonIndices<R> {
+        RenderablePolygonIndices {
+            polyhedron_slice: Self::create_slice(factory, &indices.polyhedron_indices),
+            bounding_box_slice: Self::create_slice(factory, &indices.bounding_box_indices),
+        }
+    }
+
+    fn create_slice<F: gfx::Factory<R>>(factory: &mut F, indices: &[u32]) -> gfx::Slice<R> {
+        gfx::Slice {
+            start: 0,
+            end: indices.len() as u32,
+            base_vertex: 0,
+            instances: None,
+            buffer: factory.create_index_buffer(indices),
+        }
     }
 }

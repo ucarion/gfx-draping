@@ -9,7 +9,7 @@ extern crate vecmath;
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
 use gfx::Factory;
 use gfx::traits::FactoryExt;
-use gfx_draping::{DrapingRenderer, Polygon, PolygonGroup};
+use gfx_draping::{DrapingRenderer, Polygon, PolygonBuffer};
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
 gfx_vertex_struct!(Vertex {
@@ -167,9 +167,13 @@ fn main() {
     };
 
     let renderer = DrapingRenderer::new(&mut factory);
-    let mut group = PolygonGroup::new();
-    let indices1 = group.add(&polygon1);
-    let indices2 = group.add(&polygon2);
+    let mut buffer = PolygonBuffer::new();
+    let indices1 = buffer.add(&polygon1);
+    let indices2 = buffer.add(&polygon2);
+
+    let renderable_buffer = buffer.as_renderable(&mut factory);
+    let renderable_indices1 = indices1.as_renderable(&mut factory);
+    let renderable_indices2 = indices2.as_renderable(&mut factory);
 
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
@@ -202,8 +206,8 @@ fn main() {
                 window.output_stencil.clone(),
                 mvp,
                 [0.0, 0.0, 1.0, 0.5],
-                &group,
-                &indices1,
+                &renderable_buffer,
+                &renderable_indices1,
             );
 
             renderer.render(
@@ -213,8 +217,8 @@ fn main() {
                 window.output_stencil.clone(),
                 mvp,
                 [0.0, 0.0, 0.0, 0.8],
-                &group,
-                &indices2,
+                &renderable_buffer,
+                &renderable_indices2,
             );
         });
 

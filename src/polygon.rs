@@ -2,16 +2,17 @@ use gfx;
 use gfx::traits::FactoryExt;
 
 use Vertex;
+use render::*;
 
 #[derive(Debug)]
-pub struct PolygonGroup {
-    polyhedron_vertices: Vec<Vertex>,
-    bounding_box_vertices: Vec<Vertex>,
+pub struct PolygonBuffer {
+    pub(crate) polyhedron_vertices: Vec<Vertex>,
+    pub(crate) bounding_box_vertices: Vec<Vertex>,
 }
 
-impl PolygonGroup {
-    pub fn new() -> PolygonGroup {
-        PolygonGroup {
+impl PolygonBuffer {
+    pub fn new() -> PolygonBuffer {
+        PolygonBuffer {
             polyhedron_vertices: Vec::new(),
             bounding_box_vertices: Vec::new(),
         }
@@ -30,40 +31,40 @@ impl PolygonGroup {
         }
     }
 
-    pub fn polyhedron_vertex_buffer<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::handle::Buffer<R, Vertex> {
-        factory.create_vertex_buffer(&self.polyhedron_vertices)
-    }
-
-    pub fn bounding_box_vertex_buffer<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::handle::Buffer<R, Vertex> {
-        factory.create_vertex_buffer(&self.bounding_box_vertices)
+    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> RenderablePolygonBuffer<R> {
+        RenderablePolygonBuffer::new(factory, &self)
     }
 }
 
 #[derive(Debug)]
 pub struct PolygonBufferIndices {
-    polyhedron_indices: Vec<u32>,
-    bounding_box_indices: Vec<u32>,
+    pub(crate) polyhedron_indices: Vec<u32>,
+    pub(crate) bounding_box_indices: Vec<u32>,
 }
 
 impl PolygonBufferIndices {
-    pub fn polyhedron_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
-        gfx::Slice {
-            start: 0,
-            end: self.polyhedron_indices.len() as u32,
-            base_vertex: 0,
-            instances: None,
-            buffer: factory.create_index_buffer(&self.polyhedron_indices[..]),
-        }
-    }
+    // pub fn polyhedron_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
+    //     gfx::Slice {
+    //         start: 0,
+    //         end: self.polyhedron_indices.len() as u32,
+    //         base_vertex: 0,
+    //         instances: None,
+    //         buffer: factory.create_index_buffer(&self.polyhedron_indices[..]),
+    //     }
+    // }
 
-    pub fn bounding_box_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
-        gfx::Slice {
-            start: 0,
-            end: self.bounding_box_indices.len() as u32,
-            base_vertex: 0,
-            instances: None,
-            buffer: factory.create_index_buffer(&self.bounding_box_indices[..]),
-        }
+    // pub fn bounding_box_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
+    //     gfx::Slice {
+    //         start: 0,
+    //         end: self.bounding_box_indices.len() as u32,
+    //         base_vertex: 0,
+    //         instances: None,
+    //         buffer: factory.create_index_buffer(&self.bounding_box_indices[..]),
+    //     }
+    // }
+
+    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> RenderablePolygonIndices<R> {
+        RenderablePolygonIndices::new(factory, &self)
     }
 }
 
