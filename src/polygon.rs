@@ -1,5 +1,4 @@
 use gfx;
-use gfx::traits::FactoryExt;
 
 use Vertex;
 use render::*;
@@ -22,16 +21,31 @@ impl PolygonBuffer {
         let polyhedron_offset = self.polyhedron_vertices.len() as u32;
         let bounding_box_offset = self.bounding_box_vertices.len() as u32;
 
-        self.polyhedron_vertices.extend(polygon.polyhedron_vertices());
-        self.bounding_box_vertices.extend(polygon.bounding_box_vertices());
+        self.polyhedron_vertices.extend(
+            polygon.polyhedron_vertices(),
+        );
+        self.bounding_box_vertices.extend(
+            polygon.bounding_box_vertices(),
+        );
 
         PolygonBufferIndices {
-            polyhedron_indices: polygon.polyhedron_indices().iter().map(|i| i + polyhedron_offset).collect(),
-            bounding_box_indices: polygon.bounding_box_indices().iter().map(|i| i + bounding_box_offset).collect()
+            polyhedron_indices: polygon
+                .polyhedron_indices()
+                .iter()
+                .map(|i| i + polyhedron_offset)
+                .collect(),
+            bounding_box_indices: polygon
+                .bounding_box_indices()
+                .iter()
+                .map(|i| i + bounding_box_offset)
+                .collect(),
         }
     }
 
-    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> RenderablePolygonBuffer<R> {
+    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
+        &self,
+        factory: &mut F,
+    ) -> RenderablePolygonBuffer<R> {
         RenderablePolygonBuffer::new(factory, &self)
     }
 }
@@ -43,27 +57,10 @@ pub struct PolygonBufferIndices {
 }
 
 impl PolygonBufferIndices {
-    // pub fn polyhedron_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
-    //     gfx::Slice {
-    //         start: 0,
-    //         end: self.polyhedron_indices.len() as u32,
-    //         base_vertex: 0,
-    //         instances: None,
-    //         buffer: factory.create_index_buffer(&self.polyhedron_indices[..]),
-    //     }
-    // }
-
-    // pub fn bounding_box_slice<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> gfx::Slice<R> {
-    //     gfx::Slice {
-    //         start: 0,
-    //         end: self.bounding_box_indices.len() as u32,
-    //         base_vertex: 0,
-    //         instances: None,
-    //         buffer: factory.create_index_buffer(&self.bounding_box_indices[..]),
-    //     }
-    // }
-
-    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(&self, factory: &mut F) -> RenderablePolygonIndices<R> {
+    pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
+        &self,
+        factory: &mut F,
+    ) -> RenderablePolygonIndices<R> {
         RenderablePolygonIndices::new(factory, &self)
     }
 }
@@ -126,15 +123,23 @@ impl Polygon {
                 //
                 // For interior rings, with clockwise orientation, this face should face inward.
                 let mut indices = vec![
-                    below_index, after_below_index, above_index,
-                    after_below_index, after_above_index, above_index,
+                    below_index,
+                    after_below_index,
+                    above_index,
+                    after_below_index,
+                    after_above_index,
+                    above_index,
                 ];
 
                 if index != 0 && index != num_points - 1 {
                     // The top faces should face upward; the bottom faces, downward.
                     let cap_triangles = vec![
-                        0, after_below_index, below_index,
-                        1, above_index, after_above_index,
+                        0,
+                        after_below_index,
+                        below_index,
+                        1,
+                        above_index,
+                        after_above_index,
                     ];
 
                     indices.extend(cap_triangles);
@@ -145,4 +150,3 @@ impl Polygon {
             .collect()
     }
 }
-

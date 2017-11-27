@@ -90,9 +90,8 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
     /// *Note:* In addition, the stencil buffer should be cleared to zero before calling this
     /// function. The stencil buffer is guaranteed to remain zero after each call, so there is no
     /// need to clear the stencil buffer between calls to this function.
-    pub fn render<C: gfx::CommandBuffer<R>, F: gfx::Factory<R>>(
+    pub fn render<C: gfx::CommandBuffer<R>>(
         &self,
-        factory: &mut F,
         encoder: &mut gfx::Encoder<R, C>,
         render_target: gfx::handle::RenderTargetView<R, gfx::format::Srgba8>,
         depth_stencil_target: gfx::handle::DepthStencilView<R, gfx::format::DepthStencil>,
@@ -101,12 +100,6 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         buffer: &RenderablePolygonBuffer<R>,
         indices: &RenderablePolygonIndices<R>,
     ) {
-        // let polyhedron_slice = indices.polyhedron_slice
-        // let polyhedron_vertex_buffer = buffer.polyhedron_vertex_buffer(factory);
-
-        // let bounding_box_slice = indices.bounding_box_slice(factory);
-        // let bounding_box_vertex_buffer = buffer.bounding_box_vertex_buffer(factory);
-
         let polyhedron_bundle = gfx::Bundle {
             pso: self.polyhedron_pso.clone(),
             slice: indices.polyhedron_slice.clone(),
@@ -188,7 +181,10 @@ pub struct RenderablePolygonBuffer<R: gfx::Resources> {
 }
 
 impl<R: gfx::Resources> RenderablePolygonBuffer<R> {
-    pub fn new<F: gfx::Factory<R>>(factory: &mut F, buffer: &PolygonBuffer) -> RenderablePolygonBuffer<R> {
+    pub fn new<F: gfx::Factory<R>>(
+        factory: &mut F,
+        buffer: &PolygonBuffer,
+    ) -> RenderablePolygonBuffer<R> {
         RenderablePolygonBuffer {
             polyhedron_vertex_buffer: factory.create_vertex_buffer(&buffer.polyhedron_vertices),
             bounding_box_vertex_buffer: factory.create_vertex_buffer(&buffer.bounding_box_vertices),
@@ -202,7 +198,10 @@ pub struct RenderablePolygonIndices<R: gfx::Resources> {
 }
 
 impl<R: gfx::Resources> RenderablePolygonIndices<R> {
-    pub fn new<F: gfx::Factory<R>>(factory: &mut F, indices: &PolygonBufferIndices) -> RenderablePolygonIndices<R> {
+    pub fn new<F: gfx::Factory<R>>(
+        factory: &mut F,
+        indices: &PolygonBufferIndices,
+    ) -> RenderablePolygonIndices<R> {
         RenderablePolygonIndices {
             polyhedron_slice: Self::create_slice(factory, &indices.polyhedron_indices),
             bounding_box_slice: Self::create_slice(factory, &indices.bounding_box_indices),
