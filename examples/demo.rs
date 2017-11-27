@@ -9,7 +9,7 @@ extern crate vecmath;
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
 use gfx::Factory;
 use gfx::traits::FactoryExt;
-use gfx_draping::{DrapeablePolygon, DrapingRenderer};
+use gfx_draping::{DrapeablePolygon, DrapingRenderer, Polygon, PolygonBuffer};
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
 gfx_vertex_struct!(Vertex {
@@ -126,7 +126,7 @@ fn main() {
         data: terrain_data,
     };
 
-    let polygon1 = vec![
+    let polygon1_points = vec![
         // Exterior ring
         (40.0, -60.0),
         (60.0, -60.0),
@@ -149,20 +149,27 @@ fn main() {
         (41.0, -42.0),
     ];
     let polygon1_bounds = [(40.0, 60.0), (-60.0, -40.0), (-20.0, 20.0)];
+    let polygon1 = Polygon {
+        bounds: polygon1_bounds,
+        points: polygon1_points,
+    };
 
-    let polygon2 = vec![
+    let polygon2_points = vec![
         (10.0, -20.0),
         (20.0, -50.0),
         (30.0, -20.0),
         (10.0, -20.0),
     ];
     let polygon2_bounds = [(10.0, 30.0), (-50.0, -20.0), (-20.0, 20.0)];
+    let polygon2 = Polygon {
+        bounds: polygon2_bounds,
+        points: polygon2_points,
+    };
 
     let renderer = DrapingRenderer::new(&mut factory);
-    let drapeable_polygon1 =
-        DrapeablePolygon::new_from_points(&mut factory, &polygon1, &polygon1_bounds);
-    let drapeable_polygon2 =
-        DrapeablePolygon::new_from_points(&mut factory, &polygon2, &polygon2_bounds);
+    let mut buffer = PolygonBuffer::new();
+    let indices1 = buffer.add(&polygon1);
+    let indices2 = buffer.add(&polygon2);
 
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
@@ -195,7 +202,8 @@ fn main() {
                 window.output_stencil.clone(),
                 mvp,
                 [0.0, 0.0, 1.0, 0.5],
-                &drapeable_polygon1,
+                &buffer,
+                &indices1,
             );
 
             renderer.render(
@@ -205,7 +213,8 @@ fn main() {
                 window.output_stencil.clone(),
                 mvp,
                 [0.0, 0.0, 0.0, 0.8],
-                &drapeable_polygon2,
+                &buffer,
+                &indices2,
             );
         });
 

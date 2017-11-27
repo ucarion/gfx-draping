@@ -97,13 +97,14 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         depth_stencil_target: gfx::handle::DepthStencilView<R, gfx::format::DepthStencil>,
         mvp: [[f32; 4]; 4],
         color: [f32; 4],
-        polygon: &DrapeablePolygon
+        buffer: &PolygonBuffer,
+        indices: &PolygonBufferIndices,
     ) {
-        let polyhedron_slice = polygon.indices.polyhedron_slice(factory);
-        let polyhedron_vertex_buffer = polygon.buffer.polyhedron_vertex_buffer(factory);
+        let polyhedron_slice = indices.polyhedron_slice(factory);
+        let polyhedron_vertex_buffer = buffer.polyhedron_vertex_buffer(factory);
 
-        let bounding_box_slice = polygon.indices.bounding_box_slice(factory);
-        let bounding_box_vertex_buffer = polygon.buffer.bounding_box_vertex_buffer(factory);
+        let bounding_box_slice = indices.bounding_box_slice(factory);
+        let bounding_box_vertex_buffer = buffer.bounding_box_vertex_buffer(factory);
 
         let polyhedron_bundle = gfx::Bundle {
             pso: self.polyhedron_pso.clone(),
@@ -181,8 +182,8 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
 }
 
 pub struct Polygon {
-    bounds: [(f32, f32); 3],
-    points: Vec<(f32, f32)>,
+    pub bounds: [(f32, f32); 3],
+    pub points: Vec<(f32, f32)>,
 }
 
 impl Polygon {
@@ -259,26 +260,29 @@ impl Polygon {
 }
 
 #[derive(Debug)]
-struct PolygonBuffer {
+pub struct PolygonBuffer {
     polyhedron_vertices: Vec<Vertex>,
     bounding_box_vertices: Vec<Vertex>,
 }
 
 impl PolygonBuffer {
-    fn new() -> PolygonBuffer {
+    pub fn new() -> PolygonBuffer {
         PolygonBuffer {
             polyhedron_vertices: Vec::new(),
             bounding_box_vertices: Vec::new(),
         }
     }
 
-    fn add(&mut self, polygon: &Polygon) -> PolygonBufferIndices {
+    pub fn add(&mut self, polygon: &Polygon) -> PolygonBufferIndices {
+        let polyhedron_offset = self.polyhedron_vertices.len() as u32;
+        let bounding_box_offset = self.bounding_box_vertices.len() as u32;
+
         self.polyhedron_vertices.extend(polygon.polyhedron_vertices());
         self.bounding_box_vertices.extend(polygon.bounding_box_vertices());
 
         PolygonBufferIndices {
-            polyhedron_indices: polygon.polyhedron_indices(),
-            bounding_box_indices: polygon.bounding_box_indices(),
+            polyhedron_indices: polygon.polyhedron_indices().iter().map(|i| i + polyhedron_offset).collect(),
+            bounding_box_indices: polygon.bounding_box_indices().iter().map(|i| i + bounding_box_offset).collect()
         }
     }
 
@@ -292,7 +296,7 @@ impl PolygonBuffer {
 }
 
 #[derive(Debug)]
-struct PolygonBufferIndices {
+pub struct PolygonBufferIndices {
     polyhedron_indices: Vec<u32>,
     bounding_box_indices: Vec<u32>,
 }
