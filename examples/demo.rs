@@ -189,6 +189,7 @@ fn main() {
             terrain_bundle.encode(&mut window.encoder);
 
             renderer.render(
+                &mut factory,
                 &mut window.encoder,
                 window.output_color.clone(),
                 window.output_stencil.clone(),
@@ -198,6 +199,7 @@ fn main() {
             );
 
             renderer.render(
+                &mut factory,
                 &mut window.encoder,
                 window.output_color.clone(),
                 window.output_stencil.clone(),
