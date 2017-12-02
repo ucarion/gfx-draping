@@ -1,3 +1,5 @@
+use geo;
+use geo::algorithm::boundingbox::BoundingBox;
 use gfx;
 
 use Vertex;
@@ -160,5 +162,24 @@ impl Polygon {
 
             indices
         }))
+    }
+}
+
+impl From<geo::Polygon<f32>> for Polygon {
+    fn from(polygon: geo::Polygon<f32>) -> Polygon {
+        let bounding_box = polygon.bbox().unwrap();
+        let bounds = [
+            (bounding_box.xmin, bounding_box.xmax),
+            (bounding_box.ymin, bounding_box.ymax),
+        ];
+
+        let mut points = Vec::new();
+        points.extend(polygon.exterior.into_iter().map(|point| (point.x(), point.y())));
+
+        for interior in polygon.interiors {
+            points.extend(interior.into_iter().map(|point| (point.x(), point.y())));
+        }
+
+        Polygon::new(bounds, points)
     }
 }

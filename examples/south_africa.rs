@@ -2,6 +2,7 @@
 extern crate gfx;
 
 extern crate camera_controllers;
+extern crate cgmath;
 extern crate fps_counter;
 extern crate geo;
 extern crate geojson;
@@ -11,15 +12,17 @@ extern crate piston_window;
 extern crate vecmath;
 
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
+use cgmath::Matrix4;
 use fps_counter::FPSCounter;
 use geo::boundingbox::BoundingBox;
+use geo::map_coords::MapCoords;
 use geo::simplify::Simplify;
 use geo::MultiPolygon;
 use geojson::GeoJson;
 use geojson::conversion::TryInto;
 use gfx::Factory;
 use gfx::traits::FactoryExt;
-use gfx_draping::{DrapeablePolygon, DrapingRenderer};
+use gfx_draping::{DrapingRenderer, PolygonBuffer, PolygonBufferIndices};
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
 gfx_vertex_struct!(Vertex {
@@ -30,6 +33,7 @@ gfx_vertex_struct!(Vertex {
 gfx_pipeline!(terrain_pipeline {
     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
+    time: gfx::Global<f32> = "u_time",
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
     out_depth_stencil: gfx::DepthStencilTarget<gfx::format::DepthStencil> = (
@@ -61,13 +65,6 @@ fn get_elevation(x: f32, y: f32) -> f32 {
     ((x / 3.0).sin() + (y / 2.0).sin()) * 5.0
 }
 
-fn transform_coords(bbox: &geo::Bbox<f32>, point: (f32, f32)) -> (f32, f32) {
-    let x = point.0 - bbox.xmin;
-    let y = point.1 - bbox.ymax;
-
-    (x, y)
-}
-
 fn main() {
     let mut window: PistonWindow = WindowSettings::new("South Africa Draping Demo", [800, 600])
         .exit_on_esc(true)
@@ -90,9 +87,15 @@ fn main() {
     let multi_polygon = multi_polygon.simplify(&0.01);
     let bbox = multi_polygon.bbox().unwrap();
 
-    let bottom_right = transform_coords(&bbox, (bbox.xmax, bbox.ymin));
-    let max_x_value = bottom_right.0.ceil() as u16;
-    let max_y_value = -bottom_right.1.floor() as u16;
+    let multi_polygon = multi_polygon.map_coords(&|point| {
+        let x = point.0 - bbox.xmin;
+        let y = point.1 - bbox.ymax;
+
+        (x, y)
+    });
+
+    let max_x_value = (bbox.xmax - bbox.xmin).ceil() as u16;
+    let max_y_value = (bbox.ymax - bbox.ymin).ceil() as u16;
 
     let mut terrain_vertices = Vec::new();
     let mut terrain_indices = Vec::new();
@@ -155,6 +158,7 @@ fn main() {
 
     let terrain_data = terrain_pipeline::Data {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
+        time: 0.0,
         mvp: [[0.0; 4]; 4],
         out_color: window.output_color.clone(),
         out_depth_stencil: (window.output_stencil.clone(), (255, 255)),
@@ -168,41 +172,25 @@ fn main() {
     };
 
     let renderer = DrapingRenderer::new(&mut factory);
-    let drapeable_polygons: Vec<_> = multi_polygon
-        .into_iter()
-        .map(|polygon| {
-            let polygon_bbox = polygon.exterior.bbox().unwrap();
-            let bottom_left = transform_coords(&bbox, (polygon_bbox.xmin, polygon_bbox.ymin));
-            let top_right = transform_coords(&bbox, (polygon_bbox.xmax, polygon_bbox.ymax));
+    let mut buffer = PolygonBuffer::new();
+    let mut indices = PolygonBufferIndices::new();
+    for polygon in multi_polygon {
+        indices.extend(&buffer.add(&polygon.into()));
+    }
 
-            let bounds = [
-                (bottom_left.0, top_right.0),
-                (bottom_left.1, top_right.1),
-                (-10.0, 10.0),
-            ];
-
-            let mut points = vec![];
-            points.extend(polygon.exterior.into_iter().map(|point| {
-                transform_coords(&bbox, (point.x(), point.y()))
-            }));
-            for interior in polygon.interiors {
-                points.extend(interior.into_iter().map(|point| {
-                    transform_coords(&bbox, (point.x(), point.y()))
-                }));
-            }
-
-            (points, bounds)
-        })
-        .map(|(points, bounds)| {
-            DrapeablePolygon::new_from_points(&mut factory, &points, &bounds)
-        })
-        .collect();
+    let renderable_buffer = buffer.as_renderable(&mut factory);
+    let renderable_indices = indices.as_renderable(&mut factory);
 
     let mut camera_controller =
         OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
 
     let mut fps_counter = FPSCounter::new();
     let mut text_renderer = gfx_text::new(factory).build().unwrap();
+
+    let max_z = 10.0;
+    let min_z = -10.0;
+    let polygon_model = Matrix4::from_translation([0.0, 0.0, min_z].into()) *
+        Matrix4::from_nonuniform_scale(1.0, 1.0, max_z - min_z);
 
     while let Some(event) = window.next() {
         camera_controller.event(&event);
@@ -222,19 +210,21 @@ fn main() {
                 get_projection(window),
             );
 
+            terrain_bundle.data.time += 0.01;
             terrain_bundle.data.mvp = mvp;
             terrain_bundle.encode(&mut window.encoder);
 
-            for polygon in &drapeable_polygons {
-                renderer.render(
-                    &mut window.encoder,
-                    window.output_color.clone(),
-                    window.output_stencil.clone(),
-                    mvp,
-                    [0.0, 0.0, 1.0, 0.5],
-                    &polygon,
-                );
-            }
+            let cgmath_mvp: Matrix4<f32> = mvp.into();
+
+            renderer.render(
+                &mut window.encoder,
+                window.output_color.clone(),
+                window.output_stencil.clone(),
+                (cgmath_mvp * polygon_model).into(),
+                [0.0, 0.0, 1.0, 0.5],
+                &renderable_buffer,
+                &renderable_indices,
+            );
 
             let fps_message = format!("Frames per second: {}", fps_counter.tick());
             text_renderer.add(&fps_message, [10, 10], [0.0, 0.0, 0.0, 1.0]);

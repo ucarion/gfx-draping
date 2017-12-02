@@ -1,3 +1,4 @@
+extern crate geo;
 #[macro_use]
 extern crate gfx;
 

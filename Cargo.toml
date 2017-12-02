@@ -10,13 +10,14 @@ license = "MIT"
 
 [dependencies]
 gfx = "0.16"
+geo = "^0.6"
 
 [dev-dependencies]
 camera_controllers = "0.22"
 cgmath = "0.15"
 fps_counter = "0.2"
-geo = "0.4"
-geojson = "0.8"
+geo = "0.6"
+geojson = "0.9"
 gfx_text = "0.18"
 piston_window = "0.70"
 vecmath = "0.3"
