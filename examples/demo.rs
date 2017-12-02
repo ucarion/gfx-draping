@@ -138,6 +138,7 @@ fn main() {
                 (x as f32 * 4.0, x as f32 * 4.0 + 4.0),
                 (y as f32 * 4.0, y as f32 * 4.0 + 4.0),
             ];
+
             let points = vec![
                 (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 0.5),
                 (x as f32 * 4.0 + 3.5, y as f32 * 4.0 + 0.5),
@@ -145,6 +146,7 @@ fn main() {
                 (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 3.5),
                 (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 0.5),
             ];
+
             let polygon = Polygon::new(bounds, points);
             let indices = buffer.add(&polygon);
 
