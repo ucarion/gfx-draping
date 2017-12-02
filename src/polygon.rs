@@ -55,6 +55,18 @@ pub struct PolygonBufferIndices {
 }
 
 impl PolygonBufferIndices {
+    pub fn new() -> PolygonBufferIndices {
+        PolygonBufferIndices {
+            polyhedron_indices: Vec::new(),
+            bounding_box_indices: Vec::new(),
+        }
+    }
+
+    pub fn extend(&mut self, other: &PolygonBufferIndices) {
+        self.polyhedron_indices.extend_from_slice(&other.polyhedron_indices);
+        self.bounding_box_indices.extend_from_slice(&other.bounding_box_indices);
+    }
+
     pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
         &self,
         factory: &mut F,

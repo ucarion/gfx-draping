@@ -9,7 +9,7 @@ extern crate vecmath;
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
 use gfx::Factory;
 use gfx::traits::FactoryExt;
-use gfx_draping::{DrapingRenderer, Polygon, PolygonBuffer};
+use gfx_draping::{DrapingRenderer, Polygon, PolygonBuffer, PolygonBufferIndices};
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
 gfx_vertex_struct!(Vertex {
@@ -125,45 +125,45 @@ fn main() {
         data: terrain_data,
     };
 
-    // Next, set up some polygons ...
-    let polygon1_points = vec![
-        // Exterior ring
-        (40.0, 40.0),
-        (60.0, 40.0),
-        (60.0, 60.0),
-        (40.0, 60.0),
-        (40.0, 40.0),
-
-        // Interior ring #1
-        (49.0, 45.0),
-        (49.0, 55.0),
-        (59.0, 55.0),
-        (59.0, 45.0),
-        (49.0, 45.0),
-    ];
-    let polygon1_bounds = [(40.0, 60.0), (40.0, 60.0), (-20.0, 20.0)];
-    let polygon1 = Polygon::new(polygon1_bounds, polygon1_points);
-
-    let polygon2_points = vec![
-        (10.0, -20.0),
-        (20.0, -50.0),
-        (30.0, -20.0),
-        (10.0, -20.0),
-    ];
-    let polygon2_bounds = [(10.0, 30.0), (-50.0, -20.0), (-20.0, 20.0)];
-    let polygon2 = Polygon::new(polygon2_bounds, polygon2_points);
-
-    let renderer = DrapingRenderer::new(&mut factory);
+    // Next, step up the polygons ...
     let mut buffer = PolygonBuffer::new();
-    let indices1 = buffer.add(&polygon1);
-    let indices2 = buffer.add(&polygon2);
+    let mut indices1 = PolygonBufferIndices::new();
+    let mut indices2 = PolygonBufferIndices::new();
 
+    for x in 0..TERRAIN_SIDE_LENGTH / 4 {
+        for y in 0..TERRAIN_SIDE_LENGTH / 4 {
+            let bounds = [
+                (x as f32 * 4.0, x as f32 * 4.0 + 4.0),
+                (y as f32 * 4.0, y as f32 * 4.0 + 4.0),
+                (-20.0, 20.0),
+            ];
+            let points = vec![
+                (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 0.5),
+                (x as f32 * 4.0 + 3.5, y as f32 * 4.0 + 0.5),
+                (x as f32 * 4.0 + 3.5, y as f32 * 4.0 + 3.5),
+                (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 3.5),
+                (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 0.5),
+            ];
+            let polygon = Polygon::new(bounds, points);
+            let indices = buffer.add(&polygon);
+
+            if x % 2 == y % 2 {
+                indices1.extend(&indices);
+            } else {
+                indices2.extend(&indices);
+            }
+        }
+    }
+
+    // Finally, prepare the polygons for rendering.
+    let renderer = DrapingRenderer::new(&mut factory);
     let renderable_buffer = buffer.as_renderable(&mut factory);
     let renderable_indices1 = indices1.as_renderable(&mut factory);
     let renderable_indices2 = indices2.as_renderable(&mut factory);
 
     let mut camera_controller =
         OrbitZoomCamera::new([50.0, 50.0, 0.0], OrbitZoomCameraSettings::default());
+    camera_controller.distance = 50.0;
 
     while let Some(event) = window.next() {
         camera_controller.event(&event);
@@ -202,7 +202,7 @@ fn main() {
                 window.output_color.clone(),
                 window.output_stencil.clone(),
                 mvp,
-                [0.0, 0.0, 0.0, 0.8],
+                [0.0, 1.0, 1.0, 0.5],
                 &renderable_buffer,
                 &renderable_indices2,
             );
