@@ -13,6 +13,7 @@ gfx = "0.16"
 
 [dev-dependencies]
 camera_controllers = "0.22"
+cgmath = "0.15"
 fps_counter = "0.2"
 geo = "0.4"
 geojson = "0.8"

@@ -2,11 +2,13 @@
 extern crate gfx;
 
 extern crate camera_controllers;
+extern crate cgmath;
 extern crate gfx_draping;
 extern crate piston_window;
 extern crate vecmath;
 
 use camera_controllers::{CameraPerspective, OrbitZoomCamera, OrbitZoomCameraSettings};
+use cgmath::Matrix4;
 use gfx::Factory;
 use gfx::traits::FactoryExt;
 use gfx_draping::{DrapingRenderer, Polygon, PolygonBuffer, PolygonBufferIndices};
@@ -135,7 +137,6 @@ fn main() {
             let bounds = [
                 (x as f32 * 4.0, x as f32 * 4.0 + 4.0),
                 (y as f32 * 4.0, y as f32 * 4.0 + 4.0),
-                (-20.0, 20.0),
             ];
             let points = vec![
                 (x as f32 * 4.0 + 0.5, y as f32 * 4.0 + 0.5),
@@ -165,6 +166,11 @@ fn main() {
         OrbitZoomCamera::new([50.0, 50.0, 0.0], OrbitZoomCameraSettings::default());
     camera_controller.distance = 50.0;
 
+    let max_z = 20.0;
+    let min_z = -20.0;
+    let polygon_model =
+        Matrix4::from_translation([0.0, 0.0, min_z].into()) * Matrix4::from_nonuniform_scale(1.0, 1.0, max_z - min_z);
+
     while let Some(event) = window.next() {
         camera_controller.event(&event);
 
@@ -187,11 +193,13 @@ fn main() {
             terrain_bundle.data.mvp = mvp;
             terrain_bundle.encode(&mut window.encoder);
 
+            let cgmath_mvp: Matrix4<f32> = mvp.into();
+
             renderer.render(
                 &mut window.encoder,
                 window.output_color.clone(),
                 window.output_stencil.clone(),
-                mvp,
+                (cgmath_mvp * polygon_model).into(),
                 [0.0, 0.0, 1.0, 0.5],
                 &renderable_buffer,
                 &renderable_indices1,
@@ -201,7 +209,7 @@ fn main() {
                 &mut window.encoder,
                 window.output_color.clone(),
                 window.output_stencil.clone(),
-                mvp,
+                (cgmath_mvp * polygon_model).into(),
                 [0.0, 1.0, 1.0, 0.5],
                 &renderable_buffer,
                 &renderable_indices2,

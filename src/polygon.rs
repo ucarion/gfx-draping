@@ -76,13 +76,12 @@ impl PolygonBufferIndices {
 }
 
 pub struct Polygon {
-    bounds: [(f32, f32); 3],
     bounding_ring: [(f32, f32); 5],
     points: Vec<(f32, f32)>,
 }
 
 impl Polygon {
-    pub fn new(bounds: [(f32, f32); 3], points: Vec<(f32, f32)>) -> Polygon {
+    pub fn new(bounds: [(f32, f32); 2], points: Vec<(f32, f32)>) -> Polygon {
         let bounding_ring = [
             (bounds[0].0, bounds[1].0),
             (bounds[0].1, bounds[1].0),
@@ -92,7 +91,6 @@ impl Polygon {
         ];
 
         Polygon {
-            bounds: bounds,
             bounding_ring: bounding_ring,
             points: points,
         }
@@ -102,8 +100,6 @@ impl Polygon {
 
         Box::new(Self::prism_vertices(
             &self.bounding_ring,
-            self.bounds[2].0,
-            self.bounds[2].1,
         ))
     }
 
@@ -112,7 +108,7 @@ impl Polygon {
     }
 
     fn polyhedron_vertices<'a>(&'a self) -> Box<'a + Iterator<Item = Vertex>> {
-        Self::prism_vertices(&self.points, self.bounds[2].0, self.bounds[2].1)
+        Self::prism_vertices(&self.points)
     }
 
     fn polyhedron_indices(&self) -> Box<Iterator<Item = u32>> {
@@ -121,12 +117,10 @@ impl Polygon {
 
     fn prism_vertices<'a>(
         points: &'a [(f32, f32)],
-        height_lower_bound: f32,
-        height_upper_bound: f32,
     ) -> Box<'a + Iterator<Item = Vertex>> {
         Box::new(points.iter().flat_map(move |&(x, y)| {
-            let below = Vertex { position: [x, y, height_lower_bound] };
-            let above = Vertex { position: [x, y, height_upper_bound] };
+            let below = Vertex { position: [x, y, 0.0] };
+            let above = Vertex { position: [x, y, 1.0] };
             vec![below, above]
         }))
     }
