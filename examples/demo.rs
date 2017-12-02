@@ -168,8 +168,8 @@ fn main() {
 
     let max_z = 20.0;
     let min_z = -20.0;
-    let polygon_model =
-        Matrix4::from_translation([0.0, 0.0, min_z].into()) * Matrix4::from_nonuniform_scale(1.0, 1.0, max_z - min_z);
+    let polygon_model = Matrix4::from_translation([0.0, 0.0, min_z].into()) *
+        Matrix4::from_nonuniform_scale(1.0, 1.0, max_z - min_z);
 
     while let Some(event) = window.next() {
         camera_controller.event(&event);

@@ -63,8 +63,12 @@ impl PolygonBufferIndices {
     }
 
     pub fn extend(&mut self, other: &PolygonBufferIndices) {
-        self.polyhedron_indices.extend_from_slice(&other.polyhedron_indices);
-        self.bounding_box_indices.extend_from_slice(&other.bounding_box_indices);
+        self.polyhedron_indices.extend_from_slice(
+            &other.polyhedron_indices,
+        );
+        self.bounding_box_indices.extend_from_slice(
+            &other.bounding_box_indices,
+        );
     }
 
     pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
@@ -97,9 +101,7 @@ impl Polygon {
     }
 
     fn bounding_box_vertices<'a>(&'a self) -> Box<'a + Iterator<Item = Vertex>> {
-        Box::new(Self::prism_vertices(
-            &self.bounding_ring,
-        ))
+        Box::new(Self::prism_vertices(&self.bounding_ring))
     }
 
     fn bounding_box_indices(&self) -> Box<Iterator<Item = u32>> {
@@ -114,9 +116,7 @@ impl Polygon {
         Self::prism_indices(self.points.len() as u32)
     }
 
-    fn prism_vertices<'a>(
-        points: &'a [(f32, f32)],
-    ) -> Box<'a + Iterator<Item = Vertex>> {
+    fn prism_vertices<'a>(points: &'a [(f32, f32)]) -> Box<'a + Iterator<Item = Vertex>> {
         Box::new(points.iter().flat_map(move |&(x, y)| {
             let below = Vertex { position: [x, y, 0.0] };
             let above = Vertex { position: [x, y, 1.0] };
