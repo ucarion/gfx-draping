@@ -97,7 +97,6 @@ impl Polygon {
     }
 
     fn bounding_box_vertices<'a>(&'a self) -> Box<'a + Iterator<Item = Vertex>> {
-
         Box::new(Self::prism_vertices(
             &self.bounding_ring,
         ))
