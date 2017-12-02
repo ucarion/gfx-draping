@@ -13,13 +13,14 @@ use gfx_draping::{DrapingRenderer, Polygon, PolygonBuffer};
 use piston_window::{OpenGL, PistonWindow, RenderEvent, ResizeEvent, Window, WindowSettings};
 
 gfx_vertex_struct!(Vertex {
-    position: [f32; 3] = "a_position",
+    position: [f32; 2] = "a_position",
     tex_coords: [f32; 2] = "a_tex_coords",
 });
 
 gfx_pipeline!(terrain_pipeline {
     color_texture: gfx::TextureSampler<[f32; 4]> = "t_color",
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
+    time: gfx::Global<f32> = "u_time",
     out_color: gfx::RenderTarget<gfx::format::Srgba8> = "o_color",
     out_depth: gfx::DepthTarget<::gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
     vertex_buffer: gfx::VertexBuffer<Vertex> = (),
@@ -36,10 +37,6 @@ fn get_projection(window: &PistonWindow) -> [[f32; 4]; 4] {
     }.projection()
 }
 
-fn get_elevation(x: f32, y: f32) -> f32 {
-    ((x / 10.0).sin() + (y / 5.0).sin()) * 10.0
-}
-
 const TERRAIN_SIDE_LENGTH: u16 = 100;
 
 fn main() {
@@ -51,6 +48,7 @@ fn main() {
 
     let mut factory = window.factory.clone();
 
+    // First, set up the terrain ...
     let mut terrain_vertices = Vec::new();
     let mut terrain_indices = Vec::new();
     let mut terrain_texture_data = Vec::new();
@@ -64,13 +62,13 @@ fn main() {
                 let c = (x + 0) + (y + 1) * TERRAIN_SIDE_LENGTH;
                 let d = (x + 1) + (y + 1) * TERRAIN_SIDE_LENGTH;
 
-                terrain_indices.extend_from_slice(&[a, c, b, b, c, d]);
+                terrain_indices.extend_from_slice(&[a, b, c, b, d, c]);
             }
 
             let (x, y) = (x as f32, y as f32);
             let (u, v) = (x / max_value as f32, y / max_value as f32);
             terrain_vertices.push(Vertex {
-                position: [x, -y, get_elevation(x, y)],
+                position: [x, y],
                 tex_coords: [u, v],
             });
 
@@ -115,6 +113,7 @@ fn main() {
     let terrain_data = terrain_pipeline::Data {
         color_texture: (terrain_texture_view.clone(), terrain_sampler.clone()),
         mvp: [[0.0; 4]; 4],
+        time: 0.0,
         out_color: window.output_color.clone(),
         out_depth: window.output_stencil.clone(),
         vertex_buffer: terrain_vertex_buffer,
@@ -126,29 +125,23 @@ fn main() {
         data: terrain_data,
     };
 
+    // Next, set up some polygons ...
     let polygon1_points = vec![
         // Exterior ring
-        (40.0, -60.0),
-        (60.0, -60.0),
-        (60.0, -40.0),
-        (40.0, -40.0),
-        (40.0, -60.0),
+        (40.0, 40.0),
+        (60.0, 40.0),
+        (60.0, 60.0),
+        (40.0, 60.0),
+        (40.0, 40.0),
 
         // Interior ring #1
-        (49.0, -55.0),
-        (49.0, -45.0),
-        (59.0, -45.0),
-        (59.0, -55.0),
-        (49.0, -55.0),
-
-        // Interior ring #2
-        (41.0, -42.0),
-        (41.0, -41.0),
-        (42.0, -41.0),
-        (42.0, -42.0),
-        (41.0, -42.0),
+        (49.0, 45.0),
+        (49.0, 55.0),
+        (59.0, 55.0),
+        (59.0, 45.0),
+        (49.0, 45.0),
     ];
-    let polygon1_bounds = [(40.0, 60.0), (-60.0, -40.0), (-20.0, 20.0)];
+    let polygon1_bounds = [(40.0, 60.0), (40.0, 60.0), (-20.0, 20.0)];
     let polygon1 = Polygon::new(polygon1_bounds, polygon1_points);
 
     let polygon2_points = vec![
@@ -170,7 +163,7 @@ fn main() {
     let renderable_indices2 = indices2.as_renderable(&mut factory);
 
     let mut camera_controller =
-        OrbitZoomCamera::new([0.0, 0.0, 0.0], OrbitZoomCameraSettings::default());
+        OrbitZoomCamera::new([50.0, 50.0, 0.0], OrbitZoomCameraSettings::default());
 
     while let Some(event) = window.next() {
         camera_controller.event(&event);
@@ -190,6 +183,7 @@ fn main() {
                 get_projection(window),
             );
 
+            terrain_bundle.data.time += 0.01;
             terrain_bundle.data.mvp = mvp;
             terrain_bundle.encode(&mut window.encoder);
 
