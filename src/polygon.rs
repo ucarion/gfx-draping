@@ -6,7 +6,7 @@ use render::*;
 use vertex::Vertex;
 
 /// A collection of polygons that could all be rendered in a single draw call.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PolygonBuffer {
     pub(crate) polyhedron_vertices: Vec<Vertex>,
     pub(crate) bounding_box_vertices: Vec<Vertex>,
@@ -60,7 +60,7 @@ impl PolygonBuffer {
 /// A set of indices into a `PolygonBuffer`.
 ///
 /// You can combine these indices using `extend` to render multiple polygons at once.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PolygonBufferIndices {
     pub(crate) polyhedron_indices: Vec<u32>,
     pub(crate) bounding_box_indices: Vec<u32>,
@@ -105,6 +105,7 @@ impl PolygonBufferIndices {
 ///
 /// This struct implements `From<geoo:Polygon>`, so for GIS applications you can instantiate this
 /// from any `geo::Polygon`.
+#[derive(Clone, Debug)]
 pub struct Polygon {
     bounding_ring: [(f32, f32); 5],
     points: Vec<(f32, f32)>,

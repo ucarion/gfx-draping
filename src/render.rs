@@ -70,7 +70,7 @@ gfx_pipeline!(z_fail_bounding_box_pipeline {
 ///
 /// This struct contains the shaders and stencil operations necessary to render draped polygons
 /// onto a terrain.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DrapingRenderer<R: gfx::Resources> {
     polyhedron_pso: gfx::pso::PipelineState<R, z_fail_polyhedron_pipeline::Meta>,
     bounding_box_pso: gfx::pso::PipelineState<R, z_fail_bounding_box_pipeline::Meta>,
@@ -194,6 +194,7 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
 }
 
 /// A set of vertex buffer handles ready for rendering.
+#[derive(Clone, Debug)]
 pub struct RenderablePolygonBuffer<R: gfx::Resources> {
     polyhedron_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
     bounding_box_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
@@ -213,6 +214,7 @@ impl<R: gfx::Resources> RenderablePolygonBuffer<R> {
 }
 
 /// A set of index buffer handles ready for rendering.
+#[derive(Clone, Debug)]
 pub struct RenderablePolygonIndices<R: gfx::Resources> {
     polyhedron_slice: gfx::Slice<R>,
     bounding_box_slice: gfx::Slice<R>,
