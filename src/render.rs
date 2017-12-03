@@ -1,8 +1,8 @@
 use gfx;
 use gfx::traits::FactoryExt;
 
-use Vertex;
 use polygon::*;
+use vertex::Vertex;
 
 gfx_pipeline!(z_fail_polyhedron_pipeline {
     mvp: gfx::Global<[[f32; 4]; 4]> = "u_mvp",
@@ -66,6 +66,10 @@ gfx_pipeline!(z_fail_bounding_box_pipeline {
     ),
 });
 
+/// Drives graphics operations.
+///
+/// This struct contains the shaders and stencil operations necessary to render draped polygons
+/// onto a terrain.
 #[derive(Debug)]
 pub struct DrapingRenderer<R: gfx::Resources> {
     polyhedron_pso: gfx::pso::PipelineState<R, z_fail_polyhedron_pipeline::Meta>,
@@ -81,15 +85,29 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
         }
     }
 
-    /// Render a single `DrapeablePolygon` as `color`.
+    /// Render polygons in `buffer` using `indices` to choose the polygons.
     ///
-    /// *Note:* The depth buffer in `depth_stencil_target` should contain the depth values of your
-    /// terrain -- in other words, draw your terrain just before you call this function, and make
-    /// sure you don't clear the buffer until after rendering all the polygons you wish to draw.
+    /// The depth buffer in `depth_stencil_target` should contain the depth values of your terrain
+    /// -- in other words, draw your terrain just before you call this function, and make sure you
+    /// don't clear the buffer until after rendering all the polygons you wish to draw.
     ///
-    /// *Note:* In addition, the stencil buffer should be cleared to zero before calling this
-    /// function. The stencil buffer is guaranteed to remain zero after each call, so there is no
-    /// need to clear the stencil buffer between calls to this function.
+    /// In addition, the stencil buffer should be cleared to zero before calling this function. The
+    /// stencil buffer is guaranteed to remain zero after each call, so there is no need to clear
+    /// the stencil buffer between calls to this function.
+    ///
+    /// `mvp` should be a model-view-projection matrix. *You probably want to use a different `mvp`
+    /// than what you're normally using.* The polygons will only render onto terrain with z-values
+    /// between 0 and 1; you should apply a transformation to alter these z-bounds. For example, if
+    /// your terrain is bounded in height between `z_min` and `z_max`, your mvp use you from this
+    /// library might be constructed as:
+    ///
+    /// ```rust,compile_fail
+    /// // With the relevant imports, this is working code when using the `cgmath` crate.
+    ///
+    /// let translate_z = Matrix4::from_translation([0.0, 0.0, min_z].into());
+    /// let stretch_z = Matrix4::from_nonuniform_scale(1.0, 1.0, max_z - min_z);
+    /// let draping_mvp = usual_mvp * translate_z * stretch_z;
+    /// ```
     pub fn render<C: gfx::CommandBuffer<R>>(
         &self,
         encoder: &mut gfx::Encoder<R, C>,
@@ -175,12 +193,14 @@ impl<R: gfx::Resources> DrapingRenderer<R> {
     }
 }
 
+/// A set of vertex buffer handles ready for rendering.
 pub struct RenderablePolygonBuffer<R: gfx::Resources> {
     polyhedron_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
     bounding_box_vertex_buffer: gfx::handle::Buffer<R, Vertex>,
 }
 
 impl<R: gfx::Resources> RenderablePolygonBuffer<R> {
+    /// Prepare a `PolygonBuffer` for rendering.
     pub fn new<F: gfx::Factory<R>>(
         factory: &mut F,
         buffer: &PolygonBuffer,
@@ -192,12 +212,14 @@ impl<R: gfx::Resources> RenderablePolygonBuffer<R> {
     }
 }
 
+/// A set of index buffer handles ready for rendering.
 pub struct RenderablePolygonIndices<R: gfx::Resources> {
     polyhedron_slice: gfx::Slice<R>,
     bounding_box_slice: gfx::Slice<R>,
 }
 
 impl<R: gfx::Resources> RenderablePolygonIndices<R> {
+    /// Prepare a `PolygonBufferIndices` for rendering.
     pub fn new<F: gfx::Factory<R>>(
         factory: &mut F,
         indices: &PolygonBufferIndices,

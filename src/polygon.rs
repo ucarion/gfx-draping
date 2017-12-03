@@ -2,9 +2,10 @@ use geo;
 use geo::algorithm::boundingbox::BoundingBox;
 use gfx;
 
-use Vertex;
 use render::*;
+use vertex::Vertex;
 
+/// A collection of polygons that could all be rendered in a single draw call.
 #[derive(Debug)]
 pub struct PolygonBuffer {
     pub(crate) polyhedron_vertices: Vec<Vertex>,
@@ -12,6 +13,7 @@ pub struct PolygonBuffer {
 }
 
 impl PolygonBuffer {
+    /// Create a new, empty buffer.
     pub fn new() -> PolygonBuffer {
         PolygonBuffer {
             polyhedron_vertices: Vec::new(),
@@ -19,6 +21,10 @@ impl PolygonBuffer {
         }
     }
 
+    /// Add a polygon to this buffer.
+    ///
+    /// The `PolygonBufferIndices` returned can be used to render the passed polygon in a future
+    /// call to `DrapingRenderer::render` using this buffer.
     pub fn add(&mut self, polygon: &Polygon) -> PolygonBufferIndices {
         let polyhedron_offset = self.polyhedron_vertices.len() as u32;
         let bounding_box_offset = self.bounding_box_vertices.len() as u32;
@@ -42,6 +48,7 @@ impl PolygonBuffer {
         }
     }
 
+    /// Prepare this buffer for rendering.
     pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
         &self,
         factory: &mut F,
@@ -50,6 +57,9 @@ impl PolygonBuffer {
     }
 }
 
+/// A set of indices into a `PolygonBuffer`.
+///
+/// You can combine these indices using `extend` to render multiple polygons at once.
 #[derive(Debug)]
 pub struct PolygonBufferIndices {
     pub(crate) polyhedron_indices: Vec<u32>,
@@ -57,6 +67,10 @@ pub struct PolygonBufferIndices {
 }
 
 impl PolygonBufferIndices {
+    /// Create an empty set of indices.
+    ///
+    /// Rendering the returned indices would be a no-op unless you call `extend` on it. This is a
+    /// convenience method that you can use as the "zero" value to a `reduce`-like operation.
     pub fn new() -> PolygonBufferIndices {
         PolygonBufferIndices {
             polyhedron_indices: Vec::new(),
@@ -64,6 +78,11 @@ impl PolygonBufferIndices {
         }
     }
 
+    /// Add all the polygons in `other` into this set of indices.
+    ///
+    /// After calling `extend`, rendering `this` will draw all the polygons previously in `this` as
+    /// well as all the polygons in `other`. In other words, you can think of this as a
+    /// "union"/"add all" operation.
     pub fn extend(&mut self, other: &PolygonBufferIndices) {
         self.polyhedron_indices.extend_from_slice(
             &other.polyhedron_indices,
@@ -73,6 +92,7 @@ impl PolygonBufferIndices {
         );
     }
 
+    /// Prepare these indices for rendering.
     pub fn as_renderable<F: gfx::Factory<R>, R: gfx::Resources>(
         &self,
         factory: &mut F,
@@ -81,12 +101,25 @@ impl PolygonBufferIndices {
     }
 }
 
+/// A polygon with a bounding box.
+///
+/// This struct implements `From<geoo:Polygon>`, so for GIS applications you can instantiate this
+/// from any `geo::Polygon`.
 pub struct Polygon {
     bounding_ring: [(f32, f32); 5],
     points: Vec<(f32, f32)>,
 }
 
 impl Polygon {
+    /// Construct a Polygon from a bounding-box and set of points.
+    ///
+    /// `bounds` should be `[(min_x, max_x), (min_y, max_y)]`.
+    ///
+    /// `points` should be an exterior ring concatenated with a (possibly empty) set of interior
+    /// rings, where a "ring" is a list of points where the first and last point are equal.
+    ///
+    /// The exterior ring of `points` should be *positively oriented*, i.e. it should go in
+    /// counter-clockwise order. The interior rings should be *negatively oriented*.
     pub fn new(bounds: [(f32, f32); 2], points: Vec<(f32, f32)>) -> Polygon {
         let bounding_ring = [
             (bounds[0].0, bounds[1].0),

@@ -4,11 +4,7 @@ extern crate gfx;
 
 mod polygon;
 mod render;
+mod vertex;
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
-gfx_vertex_struct!(Vertex {
-    position: [f32; 3] = "a_position",
-});
-
-pub use polygon::*;
-pub use render::*;
+pub use polygon::{Polygon, PolygonBuffer, PolygonBufferIndices};
+pub use render::{DrapingRenderer, RenderablePolygonBuffer, RenderablePolygonIndices};
