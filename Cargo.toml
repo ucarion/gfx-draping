@@ -1,7 +1,7 @@
 [package]
 name = "gfx_draping"
 description = "Drape polygons over terrain with gfx"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Ulysse Carion <ulysse@ulysse.io>"]
 homepage = "https://github.com/ucarion/gfx-draping"
 repository = "https://github.com/ucarion/gfx-draping"
@@ -9,7 +9,7 @@ documentation = "https://docs.rs/gfx_draping"
 license = "MIT"
 
 [dependencies]
-gfx = "0.16"
+gfx = "0.17"
 geo = "^0.6"
 
 [dev-dependencies]
